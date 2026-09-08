@@ -130,7 +130,7 @@ export const WeakQuestionsPage: React.FC<WeakQuestionsPageProps> = ({ onNavigate
                           key={idx}
                           className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
                         >
-                          {s.type}: {s.name}
+                          {s.type}: {s.name}{s.entryNo ? ` (Entry #${s.entryNo})` : ''}
                         </span>
                       ))}
                       {dontUnderstand && (

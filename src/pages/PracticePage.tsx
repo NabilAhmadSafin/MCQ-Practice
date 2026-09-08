@@ -799,6 +799,11 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                       className="text-[10px] px-2 py-0.5 rounded font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
                     >
                       <span className="font-semibold">{s.type}:</span> {s.name}
+                      {s.type?.toLowerCase() === 'guide' && s.entryNo && (
+                        <span className="ml-1 font-mono text-[9px] font-semibold text-purple-600 dark:text-purple-400">
+                          #{s.entryNo}
+                        </span>
+                      )}
                     </span>
                   ))}
                 </div>
@@ -1062,7 +1067,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                                 key={sIdx}
                                 className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
                               >
-                                {s.type}: {s.name}
+                                {s.type}: {s.name}{s.entryNo ? ` (Entry #${s.entryNo})` : ''}
                               </span>
                             ))}
                           </div>

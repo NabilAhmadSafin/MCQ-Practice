@@ -941,10 +941,15 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
                                       : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
                                   }`}
-                                  title={`${s.type}: ${s.name}`}
+                                  title={`${s.type}: ${s.name}${s.entryNo ? ` (Entry #${s.entryNo})` : ''}`}
                                 >
                                   <span className="font-bold">{s.type}:</span>
                                   <span className="truncate max-w-[100px]">{s.name}</span>
+                                  {isGuide && s.entryNo && (
+                                    <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-purple-200/70 dark:bg-purple-900/60 font-semibold">
+                                      #{s.entryNo}
+                                    </span>
+                                  )}
                                 </span>
                               );
                             })}
@@ -1065,7 +1070,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                                   key={idx}
                                   className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium text-[11px]"
                                 >
-                                  {s.type}: {s.name}
+                                  {s.type}: {s.name}{s.entryNo ? ` (Entry #${s.entryNo})` : ''}
                                 </span>
                               ))}
                             </div>

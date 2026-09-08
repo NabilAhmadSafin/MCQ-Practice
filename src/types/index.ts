@@ -3,6 +3,7 @@ export type SourceCategory = 'Board' | 'School' | 'Guide';
 export interface QuestionSource {
   type: SourceCategory | string;
   name: string;
+  entryNo?: string;
 }
 
 export const GUIDE_OPTIONS = [

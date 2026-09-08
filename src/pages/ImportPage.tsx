@@ -41,7 +41,7 @@ const SAMPLE_CODE = `addQuestions({
       explanation: "Velocity has both magnitude and direction.",
       sources: [
         { type: "Board", name: "Dhaka Board 2024" },
-        { type: "Guide", name: "Panjaree" }
+        { type: "Guide", name: "Panjaree", entryNo: "142" }
       ]
     },
     {
@@ -56,7 +56,8 @@ const SAMPLE_CODE = `addQuestions({
       explanation: "Acceleration is the rate of change of velocity.",
       sources: [
         { type: "Board", name: "Chittagong Board 2023" },
-        { type: "School", name: "Notre Dame College" }
+        { type: "School", name: "Notre Dame College" },
+        { type: "Guide", name: "Lecture", entryNo: "88" }
       ]
     }
   ]
@@ -214,7 +215,11 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
         }
 
         const validSources = q?.sources && q.sources.length > 0
-          ? q.sources
+          ? q.sources.map((s: any) => ({
+              type: s.type || 'Board',
+              name: s.name || '',
+              ...(s.entryNo ? { entryNo: String(s.entryNo).trim() } : {})
+            }))
           : [{ type: q?.sourceType || 'Board', name: q?.sourceName || 'General' }];
 
         dbQuestions.push({
@@ -545,6 +550,19 @@ Source: Dhaka Board 2024`}
                     </span>
                   )}
                 </div>
+
+                {item.parsedQuestion?.sources && item.parsedQuestion.sources.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap pl-6 text-[11px]">
+                    {item.parsedQuestion.sources.map((s, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="px-2 py-0.5 rounded bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 font-medium"
+                      >
+                        {s.type}: {s.name}{s.entryNo ? ` (Entry #${s.entryNo})` : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Errors */}
                 {item.errors.length > 0 && (

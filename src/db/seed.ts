@@ -42,7 +42,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'Linear momentum p = mv has both magnitude and direction, whereas energy, potential, and temperature are scalar quantities.',
     sources: [
       { type: 'Board', name: 'Dhaka Board 2024' },
-      { type: 'Guide', name: 'Panjaree' }
+      { type: 'Guide', name: 'Panjaree', entryNo: '142' }
     ],
     sourceTypes: ['Board', 'Guide'],
     guides: ['Panjaree'],
@@ -67,7 +67,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'A · B = |A||B| cos(θ). Since |A| ≠ 0 and |B| ≠ 0, cos(θ) must equal 0, which corresponds to θ = 90° (perpendicular vectors).',
     sources: [
       { type: 'Board', name: 'Rajshahi Board 2023' },
-      { type: 'Guide', name: 'Lecture' }
+      { type: 'Guide', name: 'Lecture', entryNo: '88' }
     ],
     sourceTypes: ['Board', 'Guide'],
     guides: ['Lecture'],
@@ -92,7 +92,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'By definition, the magnitude of any unit vector is always exactly 1.',
     sources: [
       { type: 'School', name: 'Notre Dame College' },
-      { type: 'Guide', name: 'Royal' }
+      { type: 'Guide', name: 'Royal', entryNo: '204' }
     ],
     sourceTypes: ['School', 'Guide'],
     guides: ['Royal'],
@@ -118,7 +118,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'The horizontal motion is uniform while the vertical motion is subject to constant gravitational acceleration, yielding the parabolic trajectory y = x tan(θ) - (g / (2 v₀² cos²(θ))) x².',
     sources: [
       { type: 'Board', name: 'Cumilla Board 2023' },
-      { type: 'Guide', name: 'Chorcha' }
+      { type: 'Guide', name: 'Chorcha', entryNo: '52' }
     ],
     sourceTypes: ['Board', 'Guide'],
     guides: ['Chorcha'],
@@ -143,7 +143,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'Range R = (v₀² sin 2θ) / g. The maximum value of sin 2θ is 1 when 2θ = 90°, hence θ = 45°.',
     sources: [
       { type: 'School', name: 'Dhaka College' },
-      { type: 'Guide', name: 'eProshnobank' }
+      { type: 'Guide', name: 'eProshnobank', entryNo: '310' }
     ],
     sourceTypes: ['School', 'Guide'],
     guides: ['eProshnobank'],
@@ -169,7 +169,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'For any subshell, maximum electrons = 2(2l + 1). For l = 2 (d-subshell), maximum electrons = 2(2×2 + 1) = 10.',
     sources: [
       { type: 'Board', name: 'Sylhet Board 2022' },
-      { type: 'Guide', name: 'Panjaree' }
+      { type: 'Guide', name: 'Panjaree', entryNo: '165' }
     ],
     sourceTypes: ['Board', 'Guide'],
     guides: ['Panjaree'],
@@ -194,7 +194,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'Pauli Exclusion Principle states that no two electrons in an atom can have the exact same four quantum numbers (n, l, m, s).',
     sources: [
       { type: 'School', name: 'Rajuk Uttara Model College' },
-      { type: 'Guide', name: 'Lecture' }
+      { type: 'Guide', name: 'Lecture', entryNo: '94' }
     ],
     sourceTypes: ['School', 'Guide'],
     guides: ['Lecture'],
@@ -220,7 +220,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'Mitochondria generate the majority of cellular adenosine triphosphate (ATP) through cellular respiration.',
     sources: [
       { type: 'Board', name: 'Dinajpur Board 2024' },
-      { type: 'Guide', name: 'Royal' }
+      { type: 'Guide', name: 'Royal', entryNo: '412' }
     ],
     sourceTypes: ['Board', 'Guide'],
     guides: ['Royal'],
@@ -245,7 +245,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'Lysosomes contain acid hydrolases that break down waste materials and cellular debris.',
     sources: [
       { type: 'Board', name: 'Chattogram Board 2023' },
-      { type: 'Guide', name: 'eProshnobank' }
+      { type: 'Guide', name: 'eProshnobank', entryNo: '118' }
     ],
     sourceTypes: ['Board', 'Guide'],
     guides: ['eProshnobank'],
@@ -271,7 +271,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'A matrix with |A| = 0 has no inverse and is defined as a Singular matrix.',
     sources: [
       { type: 'Board', name: 'Barishal Board 2024' },
-      { type: 'Guide', name: 'Panjaree' }
+      { type: 'Guide', name: 'Panjaree', entryNo: '77' }
     ],
     sourceTypes: ['Board', 'Guide'],
     guides: ['Panjaree'],
@@ -296,7 +296,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     explanation: 'The reversal rule for matrix inversion states that (AB)⁻¹ = B⁻¹ A⁻¹.',
     sources: [
       { type: 'School', name: 'St. Joseph Higher Secondary School' },
-      { type: 'Guide', name: 'Chorcha' }
+      { type: 'Guide', name: 'Chorcha', entryNo: '230' }
     ],
     sourceTypes: ['School', 'Guide'],
     guides: ['Chorcha'],

@@ -108,15 +108,29 @@ export function validateParsedQuestion(
   let sources: QuestionSource[] = [];
   if (Array.isArray(raw?.sources) && raw.sources.length > 0) {
     sources = raw.sources
-      .map((s: any) => ({
-        type: typeof s?.type === 'string' ? s.type.trim() : 'Board',
-        name: typeof s?.name === 'string' ? s.name.trim() : ''
-      }))
+      .map((s: any) => {
+        const type = typeof s?.type === 'string' ? s.type.trim() : 'Board';
+        const name = typeof s?.name === 'string' ? s.name.trim() : '';
+        const rawEntry = s?.entryNo ?? s?.entryNumber ?? s?.entry_no ?? s?.entry;
+        const entryNo = rawEntry !== undefined && rawEntry !== null && String(rawEntry).trim() !== ''
+          ? String(rawEntry).trim()
+          : undefined;
+
+        return {
+          type,
+          name,
+          ...(entryNo ? { entryNo } : {})
+        };
+      })
       .filter((s: any) => s.name || s.type);
   } else if (raw?.sourceType || raw?.sourceName || raw?.source) {
     const type = typeof raw?.sourceType === 'string' ? raw.sourceType.trim() : 'Board';
     const name = typeof raw?.sourceName === 'string' ? raw.sourceName.trim() : (typeof raw?.source === 'string' ? raw.source.trim() : 'General');
-    sources = [{ type, name }];
+    const rawEntry = raw?.entryNo ?? raw?.entryNumber ?? raw?.entry_no;
+    const entryNo = rawEntry !== undefined && rawEntry !== null && String(rawEntry).trim() !== ''
+      ? String(rawEntry).trim()
+      : undefined;
+    sources = [{ type, name, ...(entryNo ? { entryNo } : {}) }];
   } else {
     sources = [{ type: 'Board', name: 'General' }];
   }

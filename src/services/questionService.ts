@@ -14,7 +14,22 @@ export function normalizeQuestionSources(sources: QuestionSource[]): {
   sourceTypes: string[];
   guides: string[];
 } {
-  const cleanSources = sources.filter(s => s && (s.name?.trim() || s.type));
+  const cleanSources: QuestionSource[] = sources
+    .filter(s => s && (s.name?.trim() || s.type))
+    .map(s => {
+      const type = (s.type || 'Board').trim();
+      const name = (s.name || '').trim();
+      const isGuide = type.toLowerCase() === 'guide';
+      const entryNo = isGuide && s.entryNo !== undefined && s.entryNo !== null && String(s.entryNo).trim() !== ''
+        ? String(s.entryNo).trim()
+        : undefined;
+
+      return {
+        type,
+        name,
+        ...(entryNo ? { entryNo } : {})
+      };
+    });
   const sourceTypes = Array.from(new Set(cleanSources.map(s => s.type).filter(Boolean)));
   const guides = Array.from(
     new Set(

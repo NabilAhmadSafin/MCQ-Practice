@@ -430,8 +430,8 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                 key={idx}
                 className="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-800/50 space-y-2"
               >
-                <div className="flex items-center gap-2">
-                  <div className="w-36 flex-shrink-0">
+                <div className="flex flex-wrap sm:flex-nowrap items-start gap-2">
+                  <div className="w-full sm:w-32 flex-shrink-0">
                     <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                       Type
                     </label>
@@ -446,7 +446,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                     </select>
                   </div>
 
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-[170px]">
                     <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                       {src.type === 'Board'
                         ? 'Board Exam / Year'
@@ -474,6 +474,21 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                       ))}
                     </datalist>
                   </div>
+
+                  {src.type === 'Guide' && (
+                    <div className="w-28 sm:w-32 flex-shrink-0">
+                      <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                        Entry No.
+                      </label>
+                      <input
+                        type="text"
+                        value={src.entryNo || ''}
+                        onChange={e => handleUpdateSource(idx, { entryNo: e.target.value })}
+                        placeholder="e.g. 142"
+                        className="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 font-mono"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex-shrink-0 self-end pb-0.5">
                     <button
