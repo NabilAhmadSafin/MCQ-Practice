@@ -1,50 +1,47 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Play, 
-  RotateCcw, 
-  CheckCircle2, 
-  XCircle, 
-  HelpCircle, 
-  Clock, 
-  ArrowRight, 
-  ArrowLeft, 
-  ChevronRight, 
-  Flag, 
-  Star, 
-  Flame, 
-  Grid, 
-  Award, 
-  TrendingUp, 
-  Check, 
+import {
+  Play,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Clock,
+  ArrowRight,
+  ArrowLeft,
+  ChevronRight,
+  Bookmark,
+  Flame,
+  Grid,
+  Award,
+  TrendingUp,
+  Check,
   X,
   Shuffle,
   AlertCircle
 } from 'lucide-react';
-import { 
-  getPracticeQuestions, 
-  toggleQuestionFlag, 
-  getQuestionById 
+import {
+  getPracticeQuestions,
+  toggleQuestionFlag,
+  getQuestionById
 } from '../services/questionService';
-import { 
-  getAllSubjects, 
-  getChaptersBySubject, 
-  getAllChapters 
+import {
+  getAllSubjects,
+  getChaptersBySubject,
+  getAllChapters
 } from '../services/subjectService';
-import { 
-  saveAttempt, 
-  savePracticeSession 
+import {
+  saveAttempt,
+  savePracticeSession
 } from '../services/attemptService';
-import { DifficultyBadge } from '../components/common/DifficultyBadge';
 import { FlagIcons } from '../components/common/FlagIcons';
-import type { 
-  Question, 
-  Subject, 
-  Chapter, 
-  Difficulty, 
-  SourceType, 
-  PracticeSession, 
-  Attempt 
+import type {
+  Question,
+  Subject,
+  Chapter,
+  PracticeSession,
+  Attempt
 } from '../types';
+import { GUIDE_OPTIONS } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
 interface PracticePageProps {
@@ -54,6 +51,8 @@ interface PracticePageProps {
   initialMode?: 'wrong' | 'important' | 'dontUnderstand';
   onNavigate: (section: NavSection, params?: any) => void;
 }
+
+const SOURCE_TYPE_OPTIONS = ['Board', 'School'] as const;
 
 export const PracticePage: React.FC<PracticePageProps> = ({
   initialSubjectId,
@@ -74,8 +73,8 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   // Configuration settings
   const [configSubjectId, setConfigSubjectId] = useState(initialSubjectId || '');
   const [configChapterId, setConfigChapterId] = useState(initialChapterId || '');
-  const [configSourceType, setConfigSourceType] = useState<SourceType | 'ALL'>('ALL');
-  const [configDifficulty, setConfigDifficulty] = useState<Difficulty | 'ALL'>('ALL');
+  const [configSourceTypes, setConfigSourceTypes] = useState<string[]>([]);
+  const [configGuides, setConfigGuides] = useState<string[]>([]);
   const [configSet, setConfigSet] = useState<
     'all' | 'unattempted' | 'wrong' | 'important' | 'veryImportant' | 'dontUnderstand'
   >(
@@ -90,7 +89,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   const [configQuestionCount, setConfigQuestionCount] = useState<number>(20);
   const [configPracticeType, setConfigPracticeType] = useState<'instant' | 'exam'>('instant');
   const [configShuffle, setConfigShuffle] = useState<boolean>(true);
-  const [configTimeLimitMinutes, setConfigTimeLimitMinutes] = useState<number>(0); // 0 = stopwatch, >0 = countdown
+  const [configTimeLimitMinutes, setConfigTimeLimitMinutes] = useState<number>(0);
 
   // Active session state
   const [sessionQuestions, setSessionQuestions] = useState<Question[]>([]);
@@ -141,11 +140,10 @@ export const PracticePage: React.FC<PracticePageProps> = ({
         setChapters(subjChaps);
       }
 
-      // If single question practice requested directly
       if (initialQuestionId) {
-        const q = await getQuestionById(initialQuestionId);
-        if (q) {
-          startSessionWithQuestions([q], 'instant', 0);
+        const singleQ = await getQuestionById(initialQuestionId);
+        if (singleQ) {
+          startSessionWithQuestions([singleQ], 'instant', 0);
         }
       }
     };
@@ -155,8 +153,24 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   const handleSubjectChange = async (subjId: string) => {
     setConfigSubjectId(subjId);
     setConfigChapterId('');
-    const chaps = await getChaptersBySubject(subjId);
-    setChapters(chaps);
+    if (subjId) {
+      const chaps = await getChaptersBySubject(subjId);
+      setChapters(chaps);
+    } else {
+      setChapters([]);
+    }
+  };
+
+  const toggleSourceType = (type: string) => {
+    setConfigSourceTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  };
+
+  const toggleGuide = (guide: string) => {
+    setConfigGuides(prev =>
+      prev.includes(guide) ? prev.filter(g => g !== guide) : [...prev, guide]
+    );
   };
 
   // Start practice session
@@ -166,15 +180,15 @@ export const PracticePage: React.FC<PracticePageProps> = ({
       const qs = await getPracticeQuestions({
         subjectId: configSubjectId || undefined,
         chapterId: configChapterId || undefined,
-        sourceType: configSourceType !== 'ALL' ? configSourceType : undefined,
-        difficulty: configDifficulty !== 'ALL' ? configDifficulty : undefined,
+        sourceTypes: configSourceTypes.length > 0 ? configSourceTypes : undefined,
+        guides: configGuides.length > 0 ? configGuides : undefined,
         set: configSet,
         count: configQuestionCount,
         shuffle: configShuffle
       });
 
       if (qs.length === 0) {
-        setSessionError('No questions match your practice criteria. Try changing the question set or chapter filter.');
+        setSessionError('No questions match your practice criteria. Try broadening your filter selection.');
         return;
       }
 
@@ -220,95 +234,73 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
-
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [phase, configTimeLimitMinutes]);
 
-  // Record time spent on current question when navigating
-  const recordQuestionTime = () => {
-    const now = Date.now();
-    const spentOnCurrent = Math.max(1, Math.round((now - questionStartTimestamp) / 1000));
-    const currentQ = sessionQuestions[currentIndex];
-    if (currentQ) {
-      setQuestionTimes(prev => ({
-        ...prev,
-        [currentQ.id]: (prev[currentQ.id] || 0) + spentOnCurrent
-      }));
-    }
-    setQuestionStartTimestamp(now);
-  };
-
-  // Handle Option Select
-  const handleSelectOption = (optionKey: 'A' | 'B' | 'C' | 'D') => {
+  // Handle choosing an option
+  const handleSelectOption = async (optionKey: 'A' | 'B' | 'C' | 'D') => {
     const currentQ = sessionQuestions[currentIndex];
     if (!currentQ) return;
 
-    // If instant mode and already answered, don't change
     if (configPracticeType === 'instant' && userAnswers[currentQ.id]) {
-      return;
+      return; // Already answered in instant mode
     }
+
+    const timeSpentOnQuestion = Math.max(1, Math.round((Date.now() - questionStartTimestamp) / 1000));
+    setQuestionTimes(prev => ({
+      ...prev,
+      [currentQ.id]: (prev[currentQ.id] || 0) + timeSpentOnQuestion
+    }));
 
     setUserAnswers(prev => ({
       ...prev,
       [currentQ.id]: optionKey
     }));
+
+    if (configPracticeType === 'instant') {
+      const isCorrect = optionKey.toUpperCase() === currentQ.correctAnswer.toUpperCase();
+      try {
+        await saveAttempt({
+          questionId: currentQ.id,
+          selectedAnswer: optionKey,
+          isCorrect,
+          timeSpentSeconds: timeSpentOnQuestion
+        });
+      } catch (err) {
+        console.error('Failed to log attempt:', err);
+      }
+    }
   };
 
-  // Navigation handlers
+  // Navigation between questions
   const handleNext = () => {
-    recordQuestionTime();
     if (currentIndex < sessionQuestions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      setCurrentIndex(prev => prev + 1);
+      setQuestionStartTimestamp(Date.now());
+    } else {
+      handleFinishSession();
     }
   };
 
   const handlePrev = () => {
-    recordQuestionTime();
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+      setCurrentIndex(prev => prev - 1);
+      setQuestionStartTimestamp(Date.now());
     }
   };
 
-  const handleJumpTo = (idx: number) => {
-    recordQuestionTime();
-    setCurrentIndex(idx);
-    setShowGridDrawer(false);
+  const handleJumpTo = (index: number) => {
+    if (index >= 0 && index < sessionQuestions.length) {
+      setCurrentIndex(index);
+      setQuestionStartTimestamp(Date.now());
+      setShowGridDrawer(false);
+    }
   };
 
-  // Keyboard shortcut listener (Prompt 17 requirement: A, B, C, D, arrows, enter)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (phase !== 'active') return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      const key = e.key.toUpperCase();
-      if (['A', 'B', 'C', 'D'].includes(key)) {
-        e.preventDefault();
-        handleSelectOption(key as any);
-      } else if (key === '1') handleSelectOption('A');
-      else if (key === '2') handleSelectOption('B');
-      else if (key === '3') handleSelectOption('C');
-      else if (key === '4') handleSelectOption('D');
-      else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        if (currentIndex < sessionQuestions.length - 1) {
-          handleNext();
-        }
-      } else if (e.key === 'ArrowLeft') {
-        if (currentIndex > 0) {
-          handlePrev();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [phase, currentIndex, sessionQuestions, userAnswers, configPracticeType]);
-
-  // Finish session
+  // Finish practice session & generate summary
   const handleFinishSession = async () => {
-    recordQuestionTime();
     if (timerRef.current) clearInterval(timerRef.current);
 
     const total = sessionQuestions.length;
@@ -319,53 +311,64 @@ export const PracticePage: React.FC<PracticePageProps> = ({
 
     const attemptsToSave: any[] = [];
 
-    for (const q of sessionQuestions) {
-      const selected = userAnswers[q.id];
-      const timeSpent = questionTimes[q.id] || 5;
-
-      if (!selected) {
+    sessionQuestions.forEach(q => {
+      const ans = userAnswers[q.id];
+      const timeSpent = questionTimes[q.id] || 0;
+      if (!ans) {
         skipped++;
-      } else if (selected.toUpperCase() === q.correctAnswer.toUpperCase()) {
+      } else if (ans.toUpperCase() === q.correctAnswer.toUpperCase()) {
         correct++;
-        attemptsToSave.push({
-          questionId: q.id,
-          selectedAnswer: selected,
-          isCorrect: true,
-          timeSpentSeconds: timeSpent
-        });
+        if (configPracticeType === 'exam') {
+          attemptsToSave.push({
+            questionId: q.id,
+            selectedAnswer: ans,
+            isCorrect: true,
+            timeSpentSeconds: timeSpent
+          });
+        }
       } else {
         wrong++;
         wrongQs.push(q);
-        attemptsToSave.push({
-          questionId: q.id,
-          selectedAnswer: selected,
-          isCorrect: false,
-          timeSpentSeconds: timeSpent
-        });
+        if (configPracticeType === 'exam') {
+          attemptsToSave.push({
+            questionId: q.id,
+            selectedAnswer: ans,
+            isCorrect: false,
+            timeSpentSeconds: timeSpent
+          });
+        }
+      }
+    });
+
+    if (configPracticeType === 'exam' && attemptsToSave.length > 0) {
+      for (const att of attemptsToSave) {
+        try {
+          await saveAttempt(att);
+        } catch (e) {
+          console.error('Failed saving exam attempt', e);
+        }
       }
     }
 
     const attempted = correct + wrong;
     const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
-    const totalTime = elapsedSeconds;
+    const totalTime = Math.round((Date.now() - sessionStartTime) / 1000);
 
-    // Persist attempts to IndexedDB
-    for (const att of attemptsToSave) {
-      await saveAttempt(att);
+    try {
+      await savePracticeSession({
+        subjectId: configSubjectId || 'mixed',
+        chapterId: configChapterId || undefined,
+        mode: configPracticeType,
+        totalQuestions: total,
+        correctCount: correct,
+        wrongCount: wrong,
+        skippedCount: skipped,
+        accuracy: accuracy,
+        totalTimeSeconds: totalTime
+      });
+    } catch (e) {
+      console.error('Failed saving practice session', e);
     }
-
-    // Persist session to IndexedDB
-    await savePracticeSession({
-      subjectId: configSubjectId || 'mixed',
-      chapterId: configChapterId || undefined,
-      totalQuestions: total,
-      correctCount: correct,
-      wrongCount: wrong,
-      skippedCount: skipped,
-      accuracy,
-      totalTimeSeconds: totalTime,
-      mode: configPracticeType
-    });
 
     setSummaryData({
       total,
@@ -381,7 +384,6 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     setPhase('summary');
   };
 
-  // Toggle flag on current active question
   const handleToggleCurrentFlag = async (
     flag: 'important' | 'veryImportant' | 'dontUnderstand'
   ) => {
@@ -393,17 +395,21 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     );
   };
 
-  // Format seconds to mm:ss
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Current Question
   const currentQ = sessionQuestions[currentIndex];
   const currentAnswer = currentQ ? userAnswers[currentQ.id] : undefined;
   const isAnswered = Boolean(currentAnswer);
+
+  const currentSources = currentQ
+    ? currentQ.sources && currentQ.sources.length > 0
+      ? currentQ.sources
+      : [{ type: currentQ.sourceType || 'Board', name: currentQ.sourceName || '' }]
+    : [];
 
   return (
     <div className="min-h-full">
@@ -415,7 +421,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               Practice Setup
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-              Customize your practice scope, feedback type, and timer options.
+              Filter questions by subject, board/school source, or guide, and customize your timer.
             </p>
           </div>
 
@@ -467,44 +473,81 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               </div>
             </div>
 
-            {/* Source & Difficulty */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-                  Question Source
+            {/* Source Types (Multi-select) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                  Source Type Filter (Choose Multiple)
                 </label>
-                <select
-                  value={configSourceType}
-                  onChange={e => setConfigSourceType(e.target.value as any)}
-                  className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100"
-                >
-                  <option value="ALL">All Sources</option>
-                  <option value="Board">Board Questions</option>
-                  <option value="School">Top Schools</option>
-                  <option value="Guide">Guide Books</option>
-                  <option value="Model Test">Model Tests</option>
-                  <option value="Other">Other Sources</option>
-                </select>
+                {configSourceTypes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfigSourceTypes([])}
+                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Clear source types
+                  </button>
+                )}
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-                  Difficulty Level
-                </label>
-                <select
-                  value={configDifficulty}
-                  onChange={e => setConfigDifficulty(e.target.value as any)}
-                  className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100"
-                >
-                  <option value="ALL">All Difficulties</option>
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
+              <div className="flex items-center gap-2 flex-wrap">
+                {SOURCE_TYPE_OPTIONS.map(st => {
+                  const isChecked = configSourceTypes.includes(st);
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => toggleSourceType(st)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                        isChecked
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                      }`}
+                    >
+                      {st} Questions
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Question Set selection (Prompt 16 requirement) */}
+            {/* Guides (Multi-select: Panjaree, Lecture, Royal, Chorcha, eProshnobank) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                  Guide Filter (Choose Multiple)
+                </label>
+                {configGuides.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfigGuides([])}
+                    className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Clear guides
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {GUIDE_OPTIONS.map(g => {
+                  const isChecked = configGuides.includes(g);
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => toggleGuide(g)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                        isChecked
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Question Target Set */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-2">
                 Question Target Set
@@ -515,8 +558,8 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                   { id: 'unattempted', label: 'Unattempted', desc: 'New to you' },
                   { id: 'wrong', label: 'Previously Wrong', desc: 'Mistakes drill' },
                   { id: 'important', label: '⭐ Important', desc: 'Marked important' },
-                  { id: 'veryImportant', label: '🔥 Very Important', desc: 'Exam priority' },
-                  { id: 'dontUnderstand', label: '❓ Don\'t Understand', desc: 'Concept clarity' }
+                  { id: 'veryImportant', label: '🔥 Very Important', desc: 'High priority' },
+                  { id: 'dontUnderstand', label: "❓ Don't Understand", desc: 'Concept clarity' }
                 ].map(opt => {
                   const isSelected = configSet === opt.id;
                   return (
@@ -549,72 +592,75 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                     key={count}
                     type="button"
                     onClick={() => setConfigQuestionCount(count)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition ${
                       configQuestionCount === count
-                        ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
-                        : 'border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                        : 'border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
                     }`}
                   >
-                    {count} Questions
+                    {count}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Practice Type (Instant Feedback vs Exam Mode) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfigPracticeType('instant')}
-                className={`p-4 rounded-xl border text-left transition-colors ${
-                  configPracticeType === 'instant'
-                    ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100'
-                    : 'border-zinc-200 dark:border-zinc-700'
-                }`}
-              >
-                <div className="flex items-center gap-2 font-bold text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span>Instant Feedback</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">
-                  See the correct answer & explanation immediately after choosing. Perfect for learning.
-                </p>
-              </button>
+            {/* Feedback Mode */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-2">
+                Practice Mode
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfigPracticeType('instant')}
+                  className={`p-3 rounded-lg border text-left transition ${
+                    configPracticeType === 'instant'
+                      ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30'
+                      : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                    Instant Feedback
+                  </div>
+                  <div className="text-[11px] text-zinc-500 mt-0.5">
+                    See correct answer and explanation right after answering each question.
+                  </div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setConfigPracticeType('exam')}
-                className={`p-4 rounded-xl border text-left transition-colors ${
-                  configPracticeType === 'exam'
-                    ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100'
-                    : 'border-zinc-200 dark:border-zinc-700'
-                }`}
-              >
-                <div className="flex items-center gap-2 font-bold text-sm">
-                  <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span>Exam Mode</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">
-                  No answer reveals during the exam. Submit at the end for your complete score and review.
-                </p>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setConfigPracticeType('exam')}
+                  className={`p-3 rounded-lg border text-left transition ${
+                    configPracticeType === 'exam'
+                      ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30'
+                      : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                    Exam Mode
+                  </div>
+                  <div className="text-[11px] text-zinc-500 mt-0.5">
+                    Answers and explanations hidden until you complete and submit the whole test.
+                  </div>
+                </button>
+              </div>
             </div>
 
-            {/* Time limit & shuffle options */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+            {/* Options: Shuffle & Timer */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-700 dark:text-zinc-300">
                 <input
                   type="checkbox"
                   checked={configShuffle}
                   onChange={e => setConfigShuffle(e.target.checked)}
-                  className="rounded text-indigo-600"
+                  className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                 />
-                <Shuffle className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Shuffle Questions randomly</span>
+                <span>Shuffle questions randomly</span>
               </label>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">Timer:</span>
+              <div className="flex items-center gap-2 text-xs">
+                <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-zinc-500">Timer:</span>
                 <select
                   value={configTimeLimitMinutes}
                   onChange={e => setConfigTimeLimitMinutes(Number(e.target.value))}
@@ -633,6 +679,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
             <div className="pt-2">
               <button
                 type="button"
+                id="start-practice-session-btn"
                 onClick={handleStartPractice}
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-xs transition-colors flex items-center justify-center gap-2"
               >
@@ -683,6 +730,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
 
               <button
                 type="button"
+                id="finish-session-btn"
                 onClick={handleFinishSession}
                 className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors"
               >
@@ -698,17 +746,15 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                 <span>Jump directly to any question:</span>
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                    Answered
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Answered
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-700 inline-block"></span>
-                    Unanswered
+                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-700" /> Unanswered
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5 max-h-48 overflow-y-auto pr-1">
+              <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-12 gap-1.5 max-h-48 overflow-y-auto p-1">
                 {sessionQuestions.map((q, idx) => {
                   const answered = Boolean(userAnswers[q.id]);
                   const isCurrent = idx === currentIndex;
@@ -735,7 +781,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
 
           {/* Question Card */}
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-8 space-y-6 shadow-xs">
-            {/* Meta bar: Subject, chapter, difficulty, source, flags */}
+            {/* Meta bar: Subject, chapter, sources, flags */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
@@ -746,10 +792,16 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                   {allChaptersMap.get(currentQ.chapterId)?.name || 'Chapter'}
                 </span>
                 <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                <span className="text-xs text-zinc-500">
-                  {currentQ.sourceName}
-                </span>
-                <DifficultyBadge difficulty={currentQ.difficulty} />
+                <div className="flex items-center gap-1 flex-wrap">
+                  {currentSources.map((s, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[10px] px-2 py-0.5 rounded font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
+                    >
+                      <span className="font-semibold">{s.type}:</span> {s.name}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               {/* Interactive Flag toggles right on screen */}
@@ -764,7 +816,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                   }`}
                   title="Mark Important"
                 >
-                  <Star className={`w-3.5 h-3.5 ${currentQ.important ? 'fill-amber-500 text-amber-500' : ''}`} />
+                  <Bookmark className={`w-3.5 h-3.5 ${currentQ.important ? 'fill-amber-500 text-amber-500' : ''}`} />
                 </button>
                 <button
                   type="button"
@@ -786,14 +838,14 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                       ? 'bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/60 dark:text-purple-200'
                       : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400'
                   }`}
-                  title="Don't Understand"
+                  title="Mark Don't Understand"
                 >
-                  <HelpCircle className={`w-3.5 h-3.5 ${currentQ.dontUnderstand ? 'text-purple-600' : ''}`} />
+                  <HelpCircle className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Question Text */}
+            {/* Prompt */}
             <div className="text-base sm:text-lg font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
               {currentQ.question}
             </div>
@@ -803,25 +855,24 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               {(['A', 'B', 'C', 'D'] as const).map(optKey => {
                 const optText = currentQ.options[optKey];
                 const isSelected = currentAnswer === optKey;
-                const isCorrect = optKey === currentQ.correctAnswer.toUpperCase();
 
-                // Style based on mode:
-                // Instant mode: reveals correct/wrong if answered
-                // Exam mode: only highlights selected option
-                let optionStyle = 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-900';
-                let indicatorStyle = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300';
+                let btnStyles =
+                  'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-zinc-900 dark:text-zinc-100';
 
                 if (configPracticeType === 'instant' && isAnswered) {
-                  if (isCorrect) {
-                    optionStyle = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100 font-medium';
-                    indicatorStyle = 'bg-emerald-600 text-white';
-                  } else if (isSelected && !isCorrect) {
-                    optionStyle = 'border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-950 dark:text-rose-100 font-medium';
-                    indicatorStyle = 'bg-rose-600 text-white';
+                  const isCorrectAnswer = optKey.toUpperCase() === currentQ.correctAnswer.toUpperCase();
+                  if (isCorrectAnswer) {
+                    btnStyles =
+                      'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100 font-semibold ring-1 ring-emerald-500';
+                  } else if (isSelected && !isCorrectAnswer) {
+                    btnStyles =
+                      'border-rose-500 bg-rose-50/70 dark:bg-rose-950/30 text-rose-950 dark:text-rose-100 font-semibold';
+                  } else {
+                    btnStyles = 'border-zinc-200 dark:border-zinc-800 opacity-60 text-zinc-500';
                   }
                 } else if (isSelected) {
-                  optionStyle = 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 font-medium ring-1 ring-indigo-600';
-                  indicatorStyle = 'bg-indigo-600 text-white';
+                  btnStyles =
+                    'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/30 text-indigo-950 dark:text-indigo-100 font-semibold ring-1 ring-indigo-600';
                 }
 
                 return (
@@ -829,124 +880,111 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                     key={optKey}
                     type="button"
                     onClick={() => handleSelectOption(optKey)}
-                    className={`w-full p-3.5 sm:p-4 rounded-xl border text-left flex items-center justify-between gap-3.5 transition-all text-sm ${optionStyle}`}
+                    className={`w-full p-3.5 sm:p-4 rounded-xl border text-left flex items-start gap-3 transition-all ${btnStyles}`}
                   >
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${indicatorStyle}`}
-                      >
-                        {optKey}
-                      </span>
-                      <span className="leading-snug pt-0.5">{optText}</span>
-                    </div>
-
-                    {/* Instant feedback icon indicators */}
-                    {configPracticeType === 'instant' && isAnswered && (
-                      <div className="shrink-0 pl-2">
-                        {isCorrect && (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                        )}
-                        {isSelected && !isCorrect && (
-                          <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                        )}
-                      </div>
-                    )}
+                    <span
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+                      }`}
+                    >
+                      {optKey}
+                    </span>
+                    <span className="text-sm sm:text-base flex-1">{optText}</span>
                   </button>
                 );
               })}
             </div>
 
-            {/* Instant Mode Explanation Drawer (shows after answering) */}
-            {configPracticeType === 'instant' && isAnswered && currentQ.explanation && (
-              <div className="p-4 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-1 animate-in fade-in">
-                <div className="text-xs font-bold text-indigo-900 dark:text-indigo-300">
-                  Explanation & Context:
+            {/* Instant Mode Explanation Card */}
+            {configPracticeType === 'instant' && isAnswered && (
+              <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 space-y-2 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  {currentAnswer?.toUpperCase() === currentQ.correctAnswer.toUpperCase() ? (
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                      <CheckCircle2 className="w-4 h-4" /> Correct Answer!
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                      <XCircle className="w-4 h-4" /> Incorrect. Correct Answer: {currentQ.correctAnswer}
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {currentQ.explanation}
-                </p>
+
+                {currentQ.explanation ? (
+                  <div className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed pt-1">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">Explanation: </span>
+                    {currentQ.explanation}
+                  </div>
+                ) : (
+                  <div className="text-xs text-zinc-400 italic">No explanation provided for this question.</div>
+                )}
               </div>
             )}
 
-            {/* Keyboard shortcut hint */}
-            <div className="hidden sm:flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
-              <span>Shortcuts: Press keys <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono">A</kbd> <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono">B</kbd> <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono">C</kbd> <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono">D</kbd></span>
-              <span><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono">←</kbd> Previous • <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono">→</kbd> Next</span>
-            </div>
-          </div>
+            {/* Bottom Actions: Prev / Next */}
+            <div className="flex items-center justify-between pt-4 border-t border-zinc-100 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={currentIndex === 0}
+                className="px-4 py-2 text-xs font-semibold rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none transition"
+              >
+                ← Previous
+              </button>
 
-          {/* Navigation Controls (Prev, Next, Skip) */}
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              disabled={currentIndex === 0}
-              onClick={handlePrev}
-              className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Previous</span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              {currentIndex < sessionQuestions.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
-                >
-                  <span>{isAnswered ? 'Next Question' : 'Skip & Next'}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleFinishSession}
-                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Submit & Finish</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleNext}
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition"
+              >
+                {currentIndex === sessionQuestions.length - 1 ? 'Finish' : 'Next Question →'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. SESSION SUMMARY VIEW (Prompt 18, 19, 20 requirement) */}
+      {/* 3. SUMMARY VIEW */}
       {phase === 'summary' && summaryData && (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6 animate-in fade-in">
           <div className="text-center space-y-2">
-            <div className="inline-flex p-3 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-              <Award className="w-8 h-8" />
-            </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-              Practice Complete!
+              Practice Completed!
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500">
               Here is your performance breakdown for this session.
             </p>
           </div>
 
-          {/* Metric Cards Grid */}
+          {/* Key Metrics Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 text-center">
-              <div className="text-xs text-zinc-500">Accuracy</div>
+              <div className="text-xs text-zinc-500">Score & Accuracy</div>
               <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
                 {summaryData.accuracy}%
+              </div>
+              <div className="text-[11px] text-zinc-400 mt-0.5">
+                {summaryData.correct} of {summaryData.attempted} correct
               </div>
             </div>
 
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 text-center">
               <div className="text-xs text-zinc-500">Correct</div>
               <div className="text-2xl font-bold text-emerald-600 mt-1">
-                {summaryData.correct} / {summaryData.total}
+                {summaryData.correct}
               </div>
+              <div className="text-[11px] text-zinc-400 mt-0.5">Questions</div>
             </div>
 
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 text-center">
               <div className="text-xs text-zinc-500">Wrong</div>
               <div className="text-2xl font-bold text-rose-600 mt-1">
                 {summaryData.wrong}
+              </div>
+              <div className="text-[11px] text-zinc-400 mt-0.5">
+                {summaryData.skipped} skipped
               </div>
             </div>
 
@@ -958,7 +996,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
             </div>
           </div>
 
-          {/* Instant Action Bar: Practice Wrong Questions Again! (Prompt 18 requirement) */}
+          {/* Instant Action Bar: Practice Wrong Questions Again! */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             {summaryData.wrongQuestions.length > 0 && (
               <button
@@ -1002,6 +1040,11 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                 const isCorrect = userAns && userAns.toUpperCase() === q.correctAnswer.toUpperCase();
                 const isSkipped = !userAns;
 
+                const qSources =
+                  q.sources && q.sources.length > 0
+                    ? q.sources
+                    : [{ type: q.sourceType || 'Board', name: q.sourceName || '' }];
+
                 return (
                   <div key={q.id} className="pt-4 first:pt-0 space-y-2">
                     <div className="flex items-start justify-between gap-3">
@@ -1009,8 +1052,20 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                         <span className="font-bold text-xs text-zinc-400 mt-0.5">
                           #{idx + 1}
                         </span>
-                        <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
-                          {q.question}
+                        <div>
+                          <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
+                            {q.question}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {qSources.map((s, sIdx) => (
+                              <span
+                                key={sIdx}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
+                              >
+                                {s.type}: {s.name}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
 
@@ -1055,8 +1110,10 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                     </div>
 
                     {q.explanation && (
-                      <div className="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/40 p-2.5 rounded-lg">
-                        <span className="font-bold text-zinc-700 dark:text-zinc-300">Solution: </span>
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400 pt-1">
+                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                          Explanation:
+                        </span>{' '}
                         {q.explanation}
                       </div>
                     )}

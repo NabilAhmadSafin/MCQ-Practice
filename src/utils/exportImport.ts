@@ -10,7 +10,7 @@ export async function exportAllDataAsJson(): Promise<string> {
 
   const exportPayload = {
     app: 'Fast MCQ Practice',
-    version: '1.0',
+    version: '2.0',
     exportedAt: new Date().toISOString(),
     subjects,
     chapters,
@@ -46,34 +46,34 @@ export async function exportQuestionsAsCsv(): Promise<string> {
     'Option D',
     'Correct Answer',
     'Explanation',
-    'Source Type',
-    'Source Name',
-    'Difficulty',
+    'Sources',
     'Important',
     'Very Important',
-    'Dont Understand',
-    'Tags'
+    'Dont Understand'
   ];
 
-  const rows = questions.map(q => [
-    escapeCsv(q.id),
-    escapeCsv(subjMap.get(q.subjectId) || ''),
-    escapeCsv(chapMap.get(q.chapterId) || ''),
-    escapeCsv(q.question),
-    escapeCsv(q.options['A'] || ''),
-    escapeCsv(q.options['B'] || ''),
-    escapeCsv(q.options['C'] || ''),
-    escapeCsv(q.options['D'] || ''),
-    escapeCsv(q.correctAnswer),
-    escapeCsv(q.explanation || ''),
-    escapeCsv(q.sourceType),
-    escapeCsv(q.sourceName),
-    escapeCsv(q.difficulty),
-    escapeCsv(q.important ? 'TRUE' : 'FALSE'),
-    escapeCsv(q.veryImportant ? 'TRUE' : 'FALSE'),
-    escapeCsv(q.dontUnderstand ? 'TRUE' : 'FALSE'),
-    escapeCsv(q.tags ? q.tags.join('; ') : '')
-  ]);
+  const rows = questions.map(q => {
+    const sourcesStr = (q.sources || [])
+      .map(s => `${s.type}: ${s.name}`)
+      .join(' | ');
+
+    return [
+      escapeCsv(q.id),
+      escapeCsv(subjMap.get(q.subjectId) || ''),
+      escapeCsv(chapMap.get(q.chapterId) || ''),
+      escapeCsv(q.question),
+      escapeCsv(q.options['A'] || ''),
+      escapeCsv(q.options['B'] || ''),
+      escapeCsv(q.options['C'] || ''),
+      escapeCsv(q.options['D'] || ''),
+      escapeCsv(q.correctAnswer),
+      escapeCsv(q.explanation || ''),
+      escapeCsv(sourcesStr),
+      escapeCsv(q.important ? 'TRUE' : 'FALSE'),
+      escapeCsv(q.veryImportant ? 'TRUE' : 'FALSE'),
+      escapeCsv(q.dontUnderstand ? 'TRUE' : 'FALSE')
+    ];
+  });
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }
@@ -153,6 +153,15 @@ export async function importDataFromJson(jsonString: string): Promise<{
     }
     if (questions.length > 0) {
       for (const q of questions) {
+        // Ensure sources exist and remove legacy tags/difficulty
+        if (!q.sources || !Array.isArray(q.sources)) {
+          q.sources = [];
+          if ((q as any).sourceType || (q as any).sourceName) {
+            q.sources.push({ type: (q as any).sourceType || 'Board', name: (q as any).sourceName || '' });
+          }
+        }
+        delete (q as any).difficulty;
+        delete (q as any).tags;
         await db.questions.put(q);
       }
     }

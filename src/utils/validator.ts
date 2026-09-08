@@ -1,4 +1,4 @@
-import type { ValidationItem, Question } from '../types';
+import type { ValidationItem, Question, QuestionSource } from '../types';
 
 export function validateParsedQuestion(
   raw: any,
@@ -70,7 +70,6 @@ export function validateParsedQuestion(
   let normalizedAnswer = '';
   if (typeof rawAns === 'string') {
     normalizedAnswer = rawAns.trim().toUpperCase();
-    // In case user wrote "Answer: C" or "Option C"
     if (normalizedAnswer.startsWith('OPTION ')) {
       normalizedAnswer = normalizedAnswer.replace('OPTION ', '').trim();
     }
@@ -105,25 +104,21 @@ export function validateParsedQuestion(
     errors.push('Missing chapter');
   }
 
-  // Source
-  const allowedSourceTypes = ['Board', 'School', 'Guide', 'Model Test', 'Other'];
-  let sourceType = raw?.sourceType;
-  if (!sourceType || !allowedSourceTypes.includes(sourceType)) {
-    sourceType = 'Other';
-  }
-  const sourceName = typeof raw?.sourceName === 'string' ? raw.sourceName.trim() : (typeof raw?.source === 'string' ? raw.source.trim() : 'General');
-
-  // Difficulty
-  const allowedDifficulties = ['Easy', 'Medium', 'Hard'];
-  let difficulty = raw?.difficulty;
-  if (!difficulty || !allowedDifficulties.includes(difficulty)) {
-    difficulty = 'Medium';
-  }
-
-  // Tags
-  let tags: string[] = [];
-  if (Array.isArray(raw?.tags)) {
-    tags = raw.tags.map((t: any) => String(t).trim().toLowerCase()).filter(Boolean);
+  // Sources (Multiple support)
+  let sources: QuestionSource[] = [];
+  if (Array.isArray(raw?.sources) && raw.sources.length > 0) {
+    sources = raw.sources
+      .map((s: any) => ({
+        type: typeof s?.type === 'string' ? s.type.trim() : 'Board',
+        name: typeof s?.name === 'string' ? s.name.trim() : ''
+      }))
+      .filter((s: any) => s.name || s.type);
+  } else if (raw?.sourceType || raw?.sourceName || raw?.source) {
+    const type = typeof raw?.sourceType === 'string' ? raw.sourceType.trim() : 'Board';
+    const name = typeof raw?.sourceName === 'string' ? raw.sourceName.trim() : (typeof raw?.source === 'string' ? raw.source.trim() : 'General');
+    sources = [{ type, name }];
+  } else {
+    sources = [{ type: 'Board', name: 'General' }];
   }
 
   const isValid = errors.length === 0;
@@ -139,10 +134,7 @@ export function validateParsedQuestion(
       options: optionsObj,
       correctAnswer: normalizedAnswer,
       explanation,
-      sourceType: sourceType as any,
-      sourceName,
-      difficulty: difficulty as any,
-      tags,
+      sources,
       important: Boolean(raw?.important),
       veryImportant: Boolean(raw?.veryImportant),
       dontUnderstand: Boolean(raw?.dontUnderstand),

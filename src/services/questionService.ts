@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { Question, QuestionFilter, Difficulty, SourceType, CorrectAnswer } from '../types';
+import type { Question, QuestionFilter, QuestionSource, CorrectAnswer } from '../types';
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -9,6 +9,28 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
+export function normalizeQuestionSources(sources: QuestionSource[]): {
+  sources: QuestionSource[];
+  sourceTypes: string[];
+  guides: string[];
+} {
+  const cleanSources = sources.filter(s => s && (s.name?.trim() || s.type));
+  const sourceTypes = Array.from(new Set(cleanSources.map(s => s.type).filter(Boolean)));
+  const guides = Array.from(
+    new Set(
+      cleanSources
+        .filter(s => s.type?.toLowerCase() === 'guide' && s.name?.trim())
+        .map(s => s.name.trim())
+    )
+  );
+
+  return {
+    sources: cleanSources,
+    sourceTypes,
+    guides
+  };
+}
+
 export async function createQuestion(data: {
   subjectId: string;
   chapterId: string;
@@ -16,17 +38,27 @@ export async function createQuestion(data: {
   options: Record<string, string>;
   correctAnswer: CorrectAnswer;
   explanation?: string;
-  sourceType: SourceType;
-  sourceName: string;
+  sources: QuestionSource[];
   important: boolean;
   veryImportant: boolean;
   dontUnderstand: boolean;
-  difficulty: Difficulty;
-  tags: string[];
 }): Promise<Question> {
+  const { sources, sourceTypes, guides } = normalizeQuestionSources(data.sources || []);
+
   const newQuestion: Question = {
-    ...data,
     id: 'q_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
+    subjectId: data.subjectId,
+    chapterId: data.chapterId,
+    question: data.question,
+    options: data.options,
+    correctAnswer: data.correctAnswer,
+    explanation: data.explanation,
+    sources,
+    sourceTypes,
+    guides,
+    important: data.important,
+    veryImportant: data.veryImportant,
+    dontUnderstand: data.dontUnderstand,
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
@@ -39,10 +71,19 @@ export async function updateQuestion(
   id: string,
   changes: Partial<Omit<Question, 'id' | 'createdAt'>>
 ): Promise<void> {
-  await db.questions.update(id, {
+  const updates: Partial<Question> = {
     ...changes,
     updatedAt: Date.now()
-  });
+  };
+
+  if (changes.sources) {
+    const norm = normalizeQuestionSources(changes.sources);
+    updates.sources = norm.sources;
+    updates.sourceTypes = norm.sourceTypes;
+    updates.guides = norm.guides;
+  }
+
+  await db.questions.update(id, updates);
 }
 
 export async function deleteQuestion(id: string): Promise<void> {
@@ -77,8 +118,8 @@ export async function toggleQuestionFlag(
 export async function getPracticeQuestions(params: {
   subjectId?: string;
   chapterId?: string;
-  sourceType?: string;
-  difficulty?: string;
+  sourceTypes?: string[];
+  guides?: string[];
   set?: 'all' | 'unattempted' | 'wrong' | 'important' | 'veryImportant' | 'dontUnderstand';
   count?: number;
   shuffle?: boolean;
@@ -95,14 +136,25 @@ export async function getPracticeQuestions(params: {
 
   let questions = await collection.toArray();
 
-  if (params.sourceType && params.sourceType !== 'ALL') {
-    questions = questions.filter(q => q.sourceType === params.sourceType);
+  // Multi-sourceType filtering
+  if (params.sourceTypes && params.sourceTypes.length > 0) {
+    const selectedTypes = new Set(params.sourceTypes.map(t => t.toLowerCase()));
+    questions = questions.filter(q =>
+      (q.sources || []).some(s => selectedTypes.has(s.type?.toLowerCase()))
+    );
   }
 
-  if (params.difficulty && params.difficulty !== 'ALL') {
-    questions = questions.filter(q => q.difficulty === params.difficulty);
+  // Multi-guide filtering
+  if (params.guides && params.guides.length > 0) {
+    const selectedGuides = new Set(params.guides.map(g => g.toLowerCase()));
+    questions = questions.filter(q =>
+      (q.sources || []).some(
+        s => s.type?.toLowerCase() === 'guide' && selectedGuides.has(s.name?.toLowerCase().trim())
+      )
+    );
   }
 
+  // Question subset
   if (params.set === 'important') {
     questions = questions.filter(q => q.important);
   } else if (params.set === 'veryImportant') {
@@ -130,7 +182,6 @@ export async function getPracticeQuestions(params: {
   }
 
   if (params.shuffle) {
-    // Fisher-Yates shuffle
     for (let i = questions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [questions[i], questions[j]] = [questions[j], questions[i]];
@@ -159,40 +210,65 @@ export async function getQuestionsPaginated(
     collection = db.questions.where('subjectId').equals(filter.subjectId);
   } else if (filter.chapterId) {
     collection = db.questions.where('chapterId').equals(filter.chapterId);
-  } else if (filter.sourceType && filter.sourceType !== 'ALL') {
-    collection = db.questions.where('sourceType').equals(filter.sourceType);
-  } else if (filter.difficulty && filter.difficulty !== 'ALL') {
-    collection = db.questions.where('difficulty').equals(filter.difficulty);
-  } else if (filter.tag) {
-    collection = db.questions.where('tags').equals(filter.tag);
   }
 
-  // Filter in memory for compound conditions
+  // Filter in memory for compound conditions and multiple selections
   let filtered = await collection.filter(q => {
     if (filter.subjectId && !filter.chapterId && q.subjectId !== filter.subjectId) return false;
     if (filter.chapterId && !filter.subjectId && q.chapterId !== filter.chapterId) return false;
-    if (filter.sourceType && filter.sourceType !== 'ALL' && q.sourceType !== filter.sourceType) return false;
-    if (filter.sourceName && !q.sourceName.toLowerCase().includes(filter.sourceName.toLowerCase())) return false;
-    if (filter.difficulty && filter.difficulty !== 'ALL' && q.difficulty !== filter.difficulty) return false;
-    if (filter.important !== undefined && q.important !== filter.important) return false;
-    if (filter.veryImportant !== undefined && q.veryImportant !== filter.veryImportant) return false;
-    if (filter.dontUnderstand !== undefined && q.dontUnderstand !== filter.dontUnderstand) return false;
-    if (filter.tag && !q.tags.includes(filter.tag)) return false;
 
+    // Multi-sourceType filtering (e.g. ['Board', 'School'])
+    const activeSourceTypes = filter.sourceTypes || (filter.sourceType && filter.sourceType !== 'ALL' ? [filter.sourceType] : []);
+    if (activeSourceTypes.length > 0) {
+      const selectedTypes = new Set(activeSourceTypes.map(t => t.toLowerCase()));
+      const hasMatchingType = (q.sources || []).some(s => selectedTypes.has(s.type?.toLowerCase()))
+        || (q.sourceType && selectedTypes.has(q.sourceType.toLowerCase()));
+      if (!hasMatchingType) return false;
+    }
+
+    // Multi-guide filtering (e.g. ['Panjaree', 'Lecture', 'Royal', 'Chorcha', 'eProshnobank'])
+    if (filter.guides && filter.guides.length > 0) {
+      const selectedGuides = new Set(filter.guides.map(g => g.toLowerCase().trim()));
+      const hasMatchingGuide = (q.sources || []).some(
+        s => s.type?.toLowerCase() === 'guide' && selectedGuides.has(s.name?.toLowerCase().trim())
+      ) || (q.guides && q.guides.some(g => selectedGuides.has(g.toLowerCase().trim())));
+      if (!hasMatchingGuide) return false;
+    }
+
+    // Source name search
+    if (filter.sourceName && filter.sourceName.trim()) {
+      const term = filter.sourceName.toLowerCase().trim();
+      const hasTerm = (q.sources || []).some(s => s.name?.toLowerCase().includes(term))
+        || (q.sourceName && q.sourceName.toLowerCase().includes(term));
+      if (!hasTerm) return false;
+    }
+
+    // Flags (multi-select)
+    if (filter.flags && filter.flags.length > 0) {
+      const matchesAnyFlag = filter.flags.some(f => Boolean(q[f]));
+      if (!matchesAnyFlag) return false;
+    } else {
+      if (filter.important !== undefined && q.important !== filter.important) return false;
+      if (filter.veryImportant !== undefined && q.veryImportant !== filter.veryImportant) return false;
+      if (filter.dontUnderstand !== undefined && q.dontUnderstand !== filter.dontUnderstand) return false;
+    }
+
+    // Text search query
     if (filter.searchQuery && filter.searchQuery.trim()) {
       const qLower = filter.searchQuery.toLowerCase().trim();
       const inQuestion = q.question.toLowerCase().includes(qLower);
       const inExplanation = q.explanation?.toLowerCase().includes(qLower) ?? false;
-      const inSource = q.sourceName.toLowerCase().includes(qLower);
-      const inOptions = Object.values(q.options).some(opt => opt.toLowerCase().includes(qLower));
-      if (!inQuestion && !inExplanation && !inSource && !inOptions) return false;
+      const inSources = (q.sources || []).some(s => s.name?.toLowerCase().includes(qLower) || s.type?.toLowerCase().includes(qLower));
+      const inOptions = Object.values(q.options || {}).some(opt => opt.toLowerCase().includes(qLower));
+      if (!inQuestion && !inExplanation && !inSources && !inOptions) return false;
     }
 
     return true;
   }).toArray();
 
   // If filter by attempt status
-  if (filter.attemptStatus && filter.attemptStatus !== 'all') {
+  const activeAttemptStatuses = filter.attemptStatuses || (filter.attemptStatus && filter.attemptStatus !== 'all' ? [filter.attemptStatus as any] : []);
+  if (activeAttemptStatuses.length > 0) {
     const allAttempts = await db.attempts.toArray();
     const attemptsByQuestion = new Map<string, { total: number; wrong: number }>();
     for (const att of allAttempts) {
@@ -202,16 +278,19 @@ export async function getQuestionsPaginated(
       attemptsByQuestion.set(att.questionId, current);
     }
 
-    if (filter.attemptStatus === 'attempted') {
-      filtered = filtered.filter(q => attemptsByQuestion.has(q.id));
-    } else if (filter.attemptStatus === 'unattempted') {
-      filtered = filtered.filter(q => !attemptsByQuestion.has(q.id));
-    } else if (filter.attemptStatus === 'wrong') {
-      filtered = filtered.filter(q => {
-        const stats = attemptsByQuestion.get(q.id);
-        return stats && stats.wrong > 0;
+    filtered = filtered.filter(q => {
+      const stats = attemptsByQuestion.get(q.id);
+      const isAttempted = Boolean(stats && stats.total > 0);
+      const isUnattempted = !isAttempted;
+      const isWrong = Boolean(stats && stats.wrong > 0);
+
+      return activeAttemptStatuses.some(status => {
+        if (status === 'attempted') return isAttempted;
+        if (status === 'unattempted') return isUnattempted;
+        if (status === 'wrong') return isWrong;
+        return true;
       });
-    }
+    });
   }
 
   // Sorting
@@ -219,10 +298,6 @@ export async function getQuestionsPaginated(
   filtered.sort((a, b) => {
     if (sortBy === 'createdAtDesc') return b.createdAt - a.createdAt;
     if (sortBy === 'createdAtAsc') return a.createdAt - b.createdAt;
-    if (sortBy === 'difficulty') {
-      const weight = { Easy: 1, Medium: 2, Hard: 3 };
-      return weight[a.difficulty] - weight[b.difficulty];
-    }
     if (sortBy === 'question') return a.question.localeCompare(b.question);
     return 0;
   });
@@ -252,11 +327,8 @@ export async function bulkUpdateQuestions(
       | 'unset_veryImportant'
       | 'set_dontUnderstand'
       | 'unset_dontUnderstand'
-      | 'set_difficulty'
       | 'set_subject_chapter'
-      | 'set_source'
-      | 'add_tag'
-      | 'remove_tag';
+      | 'add_source';
     value?: any;
   }
 ): Promise<number> {
@@ -288,28 +360,18 @@ export async function bulkUpdateQuestions(
         case 'unset_dontUnderstand':
           updates.dontUnderstand = false;
           break;
-        case 'set_difficulty':
-          updates.difficulty = action.value as Difficulty;
-          break;
         case 'set_subject_chapter':
           if (action.value?.subjectId) updates.subjectId = action.value.subjectId;
           if (action.value?.chapterId) updates.chapterId = action.value.chapterId;
           break;
-        case 'set_source':
-          if (action.value?.sourceType) updates.sourceType = action.value.sourceType;
-          if (action.value?.sourceName !== undefined) updates.sourceName = action.value.sourceName;
-          break;
-        case 'add_tag':
-          if (action.value && typeof action.value === 'string') {
-            const tagToAdd = action.value.trim();
-            if (tagToAdd && !q.tags.includes(tagToAdd)) {
-              updates.tags = [...q.tags, tagToAdd];
-            }
-          }
-          break;
-        case 'remove_tag':
-          if (action.value && typeof action.value === 'string') {
-            updates.tags = q.tags.filter(t => t !== action.value);
+        case 'add_source':
+          if (action.value && action.value.type && action.value.name) {
+            const currentSources = q.sources || [];
+            const newSources = [...currentSources, { type: action.value.type, name: action.value.name }];
+            const norm = normalizeQuestionSources(newSources);
+            updates.sources = norm.sources;
+            updates.sourceTypes = norm.sourceTypes;
+            updates.guides = norm.guides;
           }
           break;
       }
@@ -321,18 +383,12 @@ export async function bulkUpdateQuestions(
   return ids.length;
 }
 
-export async function getAllUniqueTags(): Promise<string[]> {
-  const set = new Set<string>();
-  await db.questions.each(q => {
-    q.tags?.forEach(t => set.add(t));
-  });
-  return Array.from(set).sort();
-}
-
 export async function getAllUniqueSourceNames(): Promise<string[]> {
   const set = new Set<string>();
   await db.questions.each(q => {
-    if (q.sourceName?.trim()) set.add(q.sourceName.trim());
+    (q.sources || []).forEach(s => {
+      if (s.name?.trim()) set.add(s.name.trim());
+    });
   });
   return Array.from(set).sort();
 }

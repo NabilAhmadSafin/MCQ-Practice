@@ -1,5 +1,20 @@
-export type SourceType = 'Board' | 'School' | 'Guide' | 'Model Test' | 'Other';
-export type Difficulty = 'Easy' | 'Medium' | 'Hard';
+export type SourceCategory = 'Board' | 'School' | 'Guide';
+
+export interface QuestionSource {
+  type: SourceCategory | string;
+  name: string;
+}
+
+export const GUIDE_OPTIONS = [
+  'Panjaree',
+  'Lecture',
+  'Royal',
+  'Chorcha',
+  'eProshnobank'
+] as const;
+
+export type GuideOption = typeof GUIDE_OPTIONS[number];
+
 export type CorrectAnswer = 'A' | 'B' | 'C' | 'D' | string;
 
 export interface Subject {
@@ -25,13 +40,14 @@ export interface Question {
   options: Record<string, string>; // e.g. { A: "...", B: "...", C: "...", D: "..." }
   correctAnswer: CorrectAnswer;
   explanation?: string;
-  sourceType: SourceType;
-  sourceName: string;
+  sources: QuestionSource[];
+  sourceTypes?: string[];
+  guides?: string[];
+  sourceType?: string; // legacy support if present
+  sourceName?: string; // legacy support if present
   important: boolean;
   veryImportant: boolean;
   dontUnderstand: boolean;
-  difficulty: Difficulty;
-  tags: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -69,16 +85,18 @@ export interface PracticeSession {
 export interface QuestionFilter {
   subjectId?: string;
   chapterId?: string;
-  sourceType?: SourceType | 'ALL';
+  sourceTypes?: string[]; // multiple selection: ['Board', 'School']
+  sourceType?: string;
+  guides?: string[]; // multiple selection: ['Panjaree', 'Lecture', 'Royal', 'Chorcha', 'eProshnobank']
   sourceName?: string;
-  difficulty?: Difficulty | 'ALL';
   important?: boolean;
   veryImportant?: boolean;
   dontUnderstand?: boolean;
-  tag?: string;
+  flags?: ('important' | 'veryImportant' | 'dontUnderstand')[];
   searchQuery?: string;
   attemptStatus?: 'all' | 'attempted' | 'unattempted' | 'wrong';
-  sortBy?: 'createdAtDesc' | 'createdAtAsc' | 'difficulty' | 'question';
+  attemptStatuses?: ('attempted' | 'unattempted' | 'wrong')[];
+  sortBy?: 'createdAtDesc' | 'createdAtAsc' | 'question';
 }
 
 export interface ValidationItem {

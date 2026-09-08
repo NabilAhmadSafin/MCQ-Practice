@@ -7,7 +7,7 @@ export interface RawParsedQuestion {
   explanation?: string;
   sourceType?: string;
   sourceName?: string;
-  difficulty?: string;
+  sources?: { type: string; name: string }[];
 }
 
 export async function parseDocxFile(file: File): Promise<RawParsedQuestion[]> {
@@ -36,17 +36,18 @@ export function parseTextToQuestions(rawText: string): RawParsedQuestion[] {
 
   const finalizeCurrentQ = () => {
     if (currentQ && currentQ.question) {
-      // Clean up options
       const opts = currentQ.options || {};
       const answer = currentQ.correctAnswer || '';
+      const sName = currentQ.sourceName?.trim() || 'General';
+      const sType = currentQ.sourceType || 'Board';
       questions.push({
         question: currentQ.question.trim(),
         options: opts,
         correctAnswer: answer,
         explanation: currentQ.explanation?.trim() || undefined,
-        sourceName: currentQ.sourceName?.trim() || undefined,
-        sourceType: currentQ.sourceType || 'Other',
-        difficulty: currentQ.difficulty || 'Medium'
+        sourceName: sName,
+        sourceType: sType,
+        sources: currentQ.sources || [{ type: sType, name: sName }]
       });
     }
     currentQ = null;
@@ -69,62 +70,62 @@ export function parseTextToQuestions(rawText: string): RawParsedQuestion[] {
       continue;
     }
 
+    // If not started yet, ignore header noise
+    if (!currentQ) continue;
+
+    // Check Options
+    const optMatch = line.match(optRegex);
+    if (optMatch) {
+      currentSection = null;
+      let letter = optMatch[1].toUpperCase();
+      // If 1,2,3,4 convert to A,B,C,D
+      const numMap: Record<string, string> = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+      if (numMap[letter]) letter = numMap[letter];
+
+      currentQ.options = currentQ.options || {};
+      currentQ.options[letter] = optMatch[2].trim();
+      continue;
+    }
+
     // Check Answer
     const ansMatch = line.match(ansRegex);
-    if (ansMatch && currentQ) {
-      currentQ.correctAnswer = ansMatch[1].toUpperCase();
+    if (ansMatch) {
       currentSection = null;
+      let letter = ansMatch[1].toUpperCase();
+      const numMap: Record<string, string> = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+      if (numMap[letter]) letter = numMap[letter];
+      currentQ.correctAnswer = letter;
       continue;
     }
 
     // Check Explanation
     const expMatch = line.match(expRegex);
-    if (expMatch && currentQ) {
-      currentQ.explanation = expMatch[1] || '';
+    if (expMatch) {
       currentSection = 'explanation';
+      currentQ.explanation = expMatch[1].trim();
       continue;
     }
 
     // Check Source
     const srcMatch = line.match(srcRegex);
-    if (srcMatch && currentQ) {
-      const srcVal = srcMatch[1].trim();
-      currentQ.sourceName = srcVal;
-      if (/board/i.test(srcVal)) currentQ.sourceType = 'Board';
-      else if (/college|school/i.test(srcVal)) currentQ.sourceType = 'School';
-      else if (/guide|panjeri|royal/i.test(srcVal)) currentQ.sourceType = 'Guide';
-      else if (/model|test/i.test(srcVal)) currentQ.sourceType = 'Model Test';
-      else currentQ.sourceType = 'Other';
+    if (srcMatch) {
       currentSection = null;
+      const sVal = srcMatch[1].trim();
+      currentQ.sourceName = sVal;
+      currentQ.sourceType = sVal.toLowerCase().includes('board') ? 'Board' : 'School';
+      currentQ.sources = [{ type: currentQ.sourceType, name: sVal }];
       continue;
     }
 
-    // Check Option
-    const optMatch = line.match(optRegex);
-    if (optMatch && currentQ) {
-      let letter = optMatch[1].toUpperCase();
-      // Map 1,2,3,4 to A,B,C,D if numerical
-      if (letter === '1') letter = 'A';
-      else if (letter === '2') letter = 'B';
-      else if (letter === '3') letter = 'C';
-      else if (letter === '4') letter = 'D';
-
-      if (!currentQ.options) currentQ.options = {};
-      currentQ.options[letter] = optMatch[2].trim();
-      currentSection = null;
-      continue;
-    }
-
-    // If continuation line
-    if (currentQ) {
-      if (currentSection === 'question') {
-        currentQ.question += ' ' + line;
-      } else if (currentSection === 'explanation') {
-        currentQ.explanation = (currentQ.explanation ? currentQ.explanation + ' ' : '') + line;
-      }
+    // Multiline continuation
+    if (currentSection === 'question') {
+      currentQ.question += ' ' + line;
+    } else if (currentSection === 'explanation') {
+      currentQ.explanation = (currentQ.explanation ? currentQ.explanation + ' ' : '') + line;
     }
   }
 
+  // Finalize last question
   finalizeCurrentQ();
 
   return questions;

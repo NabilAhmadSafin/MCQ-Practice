@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { getWeakQuestions, markQuestionMastered } from '../services/attemptService';
 import { getAllSubjects, getAllChapters } from '../services/subjectService';
-import { DifficultyBadge } from '../components/common/DifficultyBadge';
 import { FlagIcons } from '../components/common/FlagIcons';
 import type { Question, Subject, Chapter } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
@@ -123,7 +122,17 @@ export const WeakQuestionsPage: React.FC<WeakQuestionsPageProps> = ({ onNavigate
                       <span className="text-xs text-zinc-500">
                         {chapName}
                       </span>
-                      <DifficultyBadge difficulty={q.difficulty} />
+                      {(q.sources && q.sources.length > 0
+                        ? q.sources
+                        : [{ type: q.sourceType || 'Board', name: q.sourceName || '' }]
+                      ).map((s, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
+                        >
+                          {s.type}: {s.name}
+                        </span>
+                      ))}
                       {dontUnderstand && (
                         <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 font-semibold">
                           <HelpCircle className="w-3 h-3" />

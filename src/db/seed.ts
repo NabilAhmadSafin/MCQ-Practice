@@ -40,13 +40,15 @@ export const INITIAL_QUESTIONS: Question[] = [
     },
     correctAnswer: 'B',
     explanation: 'Linear momentum p = mv has both magnitude and direction, whereas energy, potential, and temperature are scalar quantities.',
-    sourceType: 'Board',
-    sourceName: 'Dhaka Board 2024',
+    sources: [
+      { type: 'Board', name: 'Dhaka Board 2024' },
+      { type: 'Guide', name: 'Panjaree' }
+    ],
+    sourceTypes: ['Board', 'Guide'],
+    guides: ['Panjaree'],
     important: true,
     veryImportant: false,
     dontUnderstand: false,
-    difficulty: 'Easy',
-    tags: ['conceptual', 'momentum'],
     createdAt: Date.now() - 400000,
     updatedAt: Date.now() - 400000
   },
@@ -63,13 +65,15 @@ export const INITIAL_QUESTIONS: Question[] = [
     },
     correctAnswer: 'C',
     explanation: 'A · B = |A||B| cos(θ). Since |A| ≠ 0 and |B| ≠ 0, cos(θ) must equal 0, which corresponds to θ = 90° (perpendicular vectors).',
-    sourceType: 'Board',
-    sourceName: 'Rajshahi Board 2023',
+    sources: [
+      { type: 'Board', name: 'Rajshahi Board 2023' },
+      { type: 'Guide', name: 'Lecture' }
+    ],
+    sourceTypes: ['Board', 'Guide'],
+    guides: ['Lecture'],
     important: false,
     veryImportant: true,
     dontUnderstand: false,
-    difficulty: 'Easy',
-    tags: ['formula', 'dot-product'],
     createdAt: Date.now() - 390000,
     updatedAt: Date.now() - 390000
   },
@@ -86,13 +90,15 @@ export const INITIAL_QUESTIONS: Question[] = [
     },
     correctAnswer: 'B',
     explanation: 'By definition, the magnitude of any unit vector is always exactly 1.',
-    sourceType: 'Guide',
-    sourceName: 'Panjeri Physics 1st Paper',
+    sources: [
+      { type: 'School', name: 'Notre Dame College' },
+      { type: 'Guide', name: 'Royal' }
+    ],
+    sourceTypes: ['School', 'Guide'],
+    guides: ['Royal'],
     important: false,
     veryImportant: false,
     dontUnderstand: true,
-    difficulty: 'Medium',
-    tags: ['trap', 'unit-vector'],
     createdAt: Date.now() - 380000,
     updatedAt: Date.now() - 380000
   },
@@ -101,22 +107,24 @@ export const INITIAL_QUESTIONS: Question[] = [
     id: 'q-phys-mot-1',
     subjectId: 'subj-phys',
     chapterId: 'chap-phys-2',
-    question: 'What is the SI unit of acceleration?',
+    question: 'What is the trajectory of a projectile launched at an angle θ (0° < θ < 90°) to the horizontal under uniform gravity?',
     options: {
-      A: 'm/s',
-      B: 'm·s',
-      C: 'm/s²',
-      D: 'kg·m/s'
+      A: 'Straight line',
+      B: 'Parabola',
+      C: 'Hyperbola',
+      D: 'Ellipse'
     },
-    correctAnswer: 'C',
-    explanation: 'Acceleration is defined as the rate of change of velocity with respect to time: a = dv/dt, so its SI unit is meters per second squared (m/s²).',
-    sourceType: 'Board',
-    sourceName: 'Chittagong Board 2023',
-    important: false,
+    correctAnswer: 'B',
+    explanation: 'The horizontal motion is uniform while the vertical motion is subject to constant gravitational acceleration, yielding the parabolic trajectory y = x tan(θ) - (g / (2 v₀² cos²(θ))) x².',
+    sources: [
+      { type: 'Board', name: 'Cumilla Board 2023' },
+      { type: 'Guide', name: 'Chorcha' }
+    ],
+    sourceTypes: ['Board', 'Guide'],
+    guides: ['Chorcha'],
+    important: true,
     veryImportant: false,
     dontUnderstand: false,
-    difficulty: 'Easy',
-    tags: ['formula', 'units'],
     createdAt: Date.now() - 370000,
     updatedAt: Date.now() - 370000
   },
@@ -124,30 +132,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     id: 'q-phys-mot-2',
     subjectId: 'subj-phys',
     chapterId: 'chap-phys-2',
-    question: 'A car accelerates uniformly from rest at 2 m/s² for 5 seconds. What distance does it cover?',
-    options: {
-      A: '10 m',
-      B: '25 m',
-      C: '50 m',
-      D: '100 m'
-    },
-    correctAnswer: 'B',
-    explanation: 'Using s = ut + 0.5 * a * t² with u = 0: s = 0.5 * 2 * (5²) = 25 meters.',
-    sourceType: 'School',
-    sourceName: 'Notre Dame College Test 2024',
-    important: true,
-    veryImportant: true,
-    dontUnderstand: false,
-    difficulty: 'Medium',
-    tags: ['calculation', 'kinematics'],
-    createdAt: Date.now() - 360000,
-    updatedAt: Date.now() - 360000
-  },
-  {
-    id: 'q-phys-mot-3',
-    subjectId: 'subj-phys',
-    chapterId: 'chap-phys-2',
-    question: 'At what launch angle does an ideal projectile achieve maximum horizontal range over level ground?',
+    question: 'At what angle of projection is the horizontal range of a projectile maximum?',
     options: {
       A: '30°',
       B: '45°',
@@ -155,133 +140,169 @@ export const INITIAL_QUESTIONS: Question[] = [
       D: '90°'
     },
     correctAnswer: 'B',
-    explanation: 'Range R = (v² sin(2θ)) / g. The maximum occurs when sin(2θ) = 1, giving 2θ = 90°, hence θ = 45°.',
-    sourceType: 'Board',
-    sourceName: 'Dhaka Board 2022',
-    important: true,
+    explanation: 'Range R = (v₀² sin 2θ) / g. The maximum value of sin 2θ is 1 when 2θ = 90°, hence θ = 45°.',
+    sources: [
+      { type: 'School', name: 'Dhaka College' },
+      { type: 'Guide', name: 'eProshnobank' }
+    ],
+    sourceTypes: ['School', 'Guide'],
+    guides: ['eProshnobank'],
+    important: false,
     veryImportant: false,
     dontUnderstand: false,
-    difficulty: 'Easy',
-    tags: ['projectile', 'conceptual'],
-    createdAt: Date.now() - 350000,
-    updatedAt: Date.now() - 350000
+    createdAt: Date.now() - 360000,
+    updatedAt: Date.now() - 360000
   },
   // Chemistry: Atomic Structure
   {
     id: 'q-chem-atom-1',
     subjectId: 'subj-chem',
     chapterId: 'chap-chem-1',
-    question: 'Which quantum number determines the shape of an electron atomic orbital?',
+    question: 'What is the maximum number of electrons that can be accommodated in a subshell with azimuthal quantum number l = 2?',
     options: {
-      A: 'Principal Quantum Number (n)',
-      B: 'Azimuthal / Angular Momentum Quantum Number (l)',
-      C: 'Magnetic Quantum Number (m)',
-      D: 'Spin Quantum Number (s)'
+      A: '2',
+      B: '6',
+      C: '10',
+      D: '14'
     },
-    correctAnswer: 'B',
-    explanation: 'The azimuthal quantum number (l) designates the subshell and defines orbital angular momentum and geometric shape (e.g. s is spherical, p is dumbbell).',
-    sourceType: 'Board',
-    sourceName: 'Dhaka Board 2024',
+    correctAnswer: 'C',
+    explanation: 'For any subshell, maximum electrons = 2(2l + 1). For l = 2 (d-subshell), maximum electrons = 2(2×2 + 1) = 10.',
+    sources: [
+      { type: 'Board', name: 'Sylhet Board 2022' },
+      { type: 'Guide', name: 'Panjaree' }
+    ],
+    sourceTypes: ['Board', 'Guide'],
+    guides: ['Panjaree'],
     important: true,
     veryImportant: true,
     dontUnderstand: false,
-    difficulty: 'Medium',
-    tags: ['quantum-numbers', 'conceptual'],
-    createdAt: Date.now() - 340000,
-    updatedAt: Date.now() - 340000
+    createdAt: Date.now() - 350000,
+    updatedAt: Date.now() - 350000
   },
   {
     id: 'q-chem-atom-2',
     subjectId: 'subj-chem',
     chapterId: 'chap-chem-1',
-    question: 'What is the maximum number of electrons that can be accommodated in a shell with principal quantum number n = 3?',
+    question: 'Which of the following principles forbids two electrons in an atom from having all four identical quantum numbers?',
     options: {
-      A: '8',
-      B: '14',
-      C: '18',
-      D: '32'
+      A: 'Aufbau Principle',
+      B: "Hund's Rule",
+      C: 'Pauli Exclusion Principle',
+      D: "Heisenberg's Uncertainty Principle"
     },
     correctAnswer: 'C',
-    explanation: 'The maximum capacity of any principal shell is given by 2n². For n = 3, 2 * (3²) = 2 * 9 = 18 electrons.',
-    sourceType: 'Guide',
-    sourceName: 'Royal Chemistry 1st Paper',
+    explanation: 'Pauli Exclusion Principle states that no two electrons in an atom can have the exact same four quantum numbers (n, l, m, s).',
+    sources: [
+      { type: 'School', name: 'Rajuk Uttara Model College' },
+      { type: 'Guide', name: 'Lecture' }
+    ],
+    sourceTypes: ['School', 'Guide'],
+    guides: ['Lecture'],
     important: false,
-    veryImportant: false,
+    veryImportant: true,
     dontUnderstand: false,
-    difficulty: 'Easy',
-    tags: ['formula', 'electrons'],
-    createdAt: Date.now() - 330000,
-    updatedAt: Date.now() - 330000
+    createdAt: Date.now() - 340000,
+    updatedAt: Date.now() - 340000
   },
-  // Chemistry: Periodic Table
-  {
-    id: 'q-chem-per-1',
-    subjectId: 'subj-chem',
-    chapterId: 'chap-chem-2',
-    question: 'Which element possesses the highest electronegativity value on the Pauling scale?',
-    options: {
-      A: 'Oxygen (O)',
-      B: 'Chlorine (Cl)',
-      C: 'Fluorine (F)',
-      D: 'Nitrogen (N)'
-    },
-    correctAnswer: 'C',
-    explanation: 'Fluorine has an electronegativity value of approximately 3.98 (commonly rounded to 4.0), making it the most electronegative element.',
-    sourceType: 'Board',
-    sourceName: 'Comilla Board 2023',
-    important: true,
-    veryImportant: false,
-    dontUnderstand: false,
-    difficulty: 'Easy',
-    tags: ['periodic-trends', 'frequent'],
-    createdAt: Date.now() - 320000,
-    updatedAt: Date.now() - 320000
-  },
-  // Biology: Cell
+  // Biology: Cell Structure
   {
     id: 'q-bio-cell-1',
     subjectId: 'subj-bio',
     chapterId: 'chap-bio-1',
-    question: 'Which cellular organelle is universally referred to as the powerhouse of the cell?',
+    question: 'Which organelle is universally termed the "Powerhouse of the Cell"?',
     options: {
-      A: 'Ribosome',
-      B: 'Golgi Apparatus',
-      C: 'Mitochondrion',
+      A: 'Golgi Apparatus',
+      B: 'Ribosome',
+      C: 'Mitochondria',
       D: 'Lysosome'
     },
     correctAnswer: 'C',
-    explanation: 'Mitochondria produce the majority of cellular adenosine triphosphate (ATP) through oxidative phosphorylation.',
-    sourceType: 'Board',
-    sourceName: 'Sylhet Board 2024',
+    explanation: 'Mitochondria generate the majority of cellular adenosine triphosphate (ATP) through cellular respiration.',
+    sources: [
+      { type: 'Board', name: 'Dinajpur Board 2024' },
+      { type: 'Guide', name: 'Royal' }
+    ],
+    sourceTypes: ['Board', 'Guide'],
+    guides: ['Royal'],
     important: false,
     veryImportant: false,
     dontUnderstand: false,
-    difficulty: 'Easy',
-    tags: ['cell-biology'],
-    createdAt: Date.now() - 310000,
-    updatedAt: Date.now() - 310000
+    createdAt: Date.now() - 330000,
+    updatedAt: Date.now() - 330000
   },
-  // Mathematics
+  {
+    id: 'q-bio-cell-2',
+    subjectId: 'subj-bio',
+    chapterId: 'chap-bio-1',
+    question: 'Which organelle contains hydrolytic enzymes responsible for intracellular digestion and autolysis?',
+    options: {
+      A: 'Centrosome',
+      B: 'Lysosome',
+      C: 'Peroxisome',
+      D: 'Chloroplast'
+    },
+    correctAnswer: 'B',
+    explanation: 'Lysosomes contain acid hydrolases that break down waste materials and cellular debris.',
+    sources: [
+      { type: 'Board', name: 'Chattogram Board 2023' },
+      { type: 'Guide', name: 'eProshnobank' }
+    ],
+    sourceTypes: ['Board', 'Guide'],
+    guides: ['eProshnobank'],
+    important: true,
+    veryImportant: false,
+    dontUnderstand: true,
+    createdAt: Date.now() - 320000,
+    updatedAt: Date.now() - 320000
+  },
+  // Mathematics: Matrices
   {
     id: 'q-math-mat-1',
     subjectId: 'subj-math',
     chapterId: 'chap-math-1',
-    question: 'If matrix A has dimension 3×2 and matrix B has dimension 2×4, what is the dimension of the product AB?',
+    question: 'If the determinant of a square matrix A is zero (|A| = 0), what is matrix A called?',
     options: {
-      A: '2×2',
-      B: '3×4',
-      C: '4×3',
-      D: 'Multiplication is undefined'
+      A: 'Singular Matrix',
+      B: 'Non-Singular Matrix',
+      C: 'Scalar Matrix',
+      D: 'Identity Matrix'
+    },
+    correctAnswer: 'A',
+    explanation: 'A matrix with |A| = 0 has no inverse and is defined as a Singular matrix.',
+    sources: [
+      { type: 'Board', name: 'Barishal Board 2024' },
+      { type: 'Guide', name: 'Panjaree' }
+    ],
+    sourceTypes: ['Board', 'Guide'],
+    guides: ['Panjaree'],
+    important: true,
+    veryImportant: false,
+    dontUnderstand: false,
+    createdAt: Date.now() - 310000,
+    updatedAt: Date.now() - 310000
+  },
+  {
+    id: 'q-math-mat-2',
+    subjectId: 'subj-math',
+    chapterId: 'chap-math-1',
+    question: 'For two invertible matrices A and B of the same order, what is (AB)⁻¹ equal to?',
+    options: {
+      A: 'A⁻¹ B⁻¹',
+      B: 'B⁻¹ A⁻¹',
+      C: 'A B⁻¹',
+      D: 'B A⁻¹'
     },
     correctAnswer: 'B',
-    explanation: 'For (m × k) multiplied by (k × n), the inner dimensions match (2 = 2) and the resulting matrix dimension is (m × n) = 3 × 4.',
-    sourceType: 'Model Test',
-    sourceName: 'Engineering Admission Model Test 2024',
+    explanation: 'The reversal rule for matrix inversion states that (AB)⁻¹ = B⁻¹ A⁻¹.',
+    sources: [
+      { type: 'School', name: 'St. Joseph Higher Secondary School' },
+      { type: 'Guide', name: 'Chorcha' }
+    ],
+    sourceTypes: ['School', 'Guide'],
+    guides: ['Chorcha'],
     important: true,
     veryImportant: true,
     dontUnderstand: true,
-    difficulty: 'Medium',
-    tags: ['matrix', 'calculation'],
     createdAt: Date.now() - 300000,
     updatedAt: Date.now() - 300000
   }

@@ -39,10 +39,10 @@ const SAMPLE_CODE = `addQuestions({
       ],
       answer: "C",
       explanation: "Velocity has both magnitude and direction.",
-      sourceType: "Board",
-      sourceName: "Dhaka Board 2024",
-      difficulty: "Easy",
-      tags: ["conceptual"]
+      sources: [
+        { type: "Board", name: "Dhaka Board 2024" },
+        { type: "Guide", name: "Panjaree" }
+      ]
     },
     {
       question: "What is the SI unit of acceleration?",
@@ -54,10 +54,10 @@ const SAMPLE_CODE = `addQuestions({
       ],
       answer: "C",
       explanation: "Acceleration is the rate of change of velocity.",
-      sourceType: "Board",
-      sourceName: "Chittagong Board 2023",
-      difficulty: "Easy",
-      tags: ["formula"]
+      sources: [
+        { type: "Board", name: "Chittagong Board 2023" },
+        { type: "School", name: "Notre Dame College" }
+      ]
     }
   ]
 });`;
@@ -213,6 +213,10 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
           chapKeyMap.set(chapKey, cId);
         }
 
+        const validSources = q?.sources && q.sources.length > 0
+          ? q.sources
+          : [{ type: q?.sourceType || 'Board', name: q?.sourceName || 'General' }];
+
         dbQuestions.push({
           id: 'q_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
           subjectId: sId,
@@ -221,10 +225,9 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
           options: q?.options || {},
           correctAnswer: q?.correctAnswer || 'A',
           explanation: q?.explanation,
-          sourceType: q?.sourceType || 'Other',
-          sourceName: q?.sourceName || 'General',
-          difficulty: q?.difficulty || 'Medium',
-          tags: q?.tags || [],
+          sources: validSources,
+          sourceTypes: validSources.map((s: any) => s.type),
+          guides: validSources.filter((s: any) => s.type?.toLowerCase() === 'guide').map((s: any) => s.name),
           important: Boolean(q?.important),
           veryImportant: Boolean(q?.veryImportant),
           dontUnderstand: Boolean(q?.dontUnderstand),

@@ -1,34 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Save, 
-  Plus, 
-  ArrowLeft, 
-  CheckCircle2, 
-  Star, 
-  Flame, 
+import {
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  AlertCircle,
+  CheckCircle2,
   HelpCircle,
-  Tag as TagIcon
+  Star,
+  Flame,
+  Bookmark
 } from 'lucide-react';
-import { 
-  createQuestion, 
-  updateQuestion, 
-  getQuestionById,
-  getAllUniqueTags,
-  getAllUniqueSourceNames
-} from '../services/questionService';
 import { getAllSubjects, getChaptersBySubject } from '../services/subjectService';
-import type { Subject, Chapter, Difficulty, SourceType } from '../types';
-import type { NavSection } from '../components/layout/Sidebar';
+import { createQuestion, updateQuestion, getQuestionById, getAllUniqueSourceNames } from '../services/questionService';
+import type { Subject, Chapter, QuestionSource, CorrectAnswer } from '../types';
+import { GUIDE_OPTIONS } from '../types';
 
 interface AddQuestionPageProps {
-  editId?: string;
-  onNavigate: (section: NavSection, params?: any) => void;
+  editId?: string | null;
+  onNavigate: (page: string) => void;
 }
 
 export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavigate }) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [availableSources, setAvailableSources] = useState<string[]>([]);
 
   // Form state
@@ -43,11 +38,12 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
   });
   const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [explanation, setExplanation] = useState('');
-  const [sourceType, setSourceType] = useState<SourceType>('Board');
-  const [sourceName, setSourceName] = useState('');
-  const [difficulty, setDifficulty] = useState<Difficulty>('Medium');
-  const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+
+  // Multiple sources state
+  const [sources, setSources] = useState<QuestionSource[]>([
+    { type: 'Board', name: '' }
+  ]);
+
   const [important, setImportant] = useState(false);
   const [veryImportant, setVeryImportant] = useState(false);
   const [dontUnderstand, setDontUnderstand] = useState(false);
@@ -59,13 +55,11 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
   useEffect(() => {
     const loadInit = async () => {
-      const [subjs, allTags, allSources] = await Promise.all([
+      const [subjs, allSources] = await Promise.all([
         getAllSubjects(),
-        getAllUniqueTags(),
         getAllUniqueSourceNames()
       ]);
       setSubjects(subjs);
-      setAvailableTags(allTags);
       setAvailableSources(allSources);
 
       if (editId) {
@@ -84,10 +78,15 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           });
           setCorrectAnswer((q.correctAnswer as any) || 'A');
           setExplanation(q.explanation || '');
-          setSourceType(q.sourceType);
-          setSourceName(q.sourceName);
-          setDifficulty(q.difficulty);
-          setTags(q.tags || []);
+
+          if (q.sources && q.sources.length > 0) {
+            setSources(q.sources);
+          } else if (q.sourceType || q.sourceName) {
+            setSources([{ type: q.sourceType || 'Board', name: q.sourceName || '' }]);
+          } else {
+            setSources([{ type: 'Board', name: '' }]);
+          }
+
           setImportant(q.important);
           setVeryImportant(q.veryImportant);
           setDontUnderstand(q.dontUnderstand);
@@ -110,16 +109,22 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
     else setChapterId('');
   };
 
-  const handleAddTag = (tagToAdd: string) => {
-    const clean = tagToAdd.trim().toLowerCase().replace(/^#/, '');
-    if (clean && !tags.includes(clean)) {
-      setTags([...tags, clean]);
-      setTagInput('');
-    }
+  const handleAddSource = () => {
+    setSources(prev => [...prev, { type: 'Board', name: '' }]);
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter(t => t !== tagToRemove));
+  const handleRemoveSource = (index: number) => {
+    if (sources.length <= 1) {
+      setSources([{ type: 'Board', name: '' }]);
+      return;
+    }
+    setSources(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleUpdateSource = (index: number, updates: Partial<QuestionSource>) => {
+    setSources(prev =>
+      prev.map((s, idx) => (idx === index ? { ...s, ...updates } : s))
+    );
   };
 
   const validate = (): boolean => {
@@ -132,15 +137,16 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
       return false;
     }
     if (!question.trim()) {
-      setError('Question text cannot be empty');
+      setError('Question prompt is required');
       return false;
     }
     if (!options.A.trim() || !options.B.trim() || !options.C.trim() || !options.D.trim()) {
       setError('All 4 options (A, B, C, D) must have text');
       return false;
     }
-    if (!sourceName.trim()) {
-      setError('Source name is required (e.g. "Dhaka Board 2024" or "Panjeri Guide")');
+    const cleanSources = sources.filter(s => s.name.trim());
+    if (cleanSources.length === 0) {
+      setError('Please provide at least one source name (e.g. Board, School, or Guide)');
       return false;
     }
     setError(null);
@@ -151,6 +157,8 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
     if (!validate()) return;
     setIsSubmitting(true);
     setError(null);
+
+    const validSources = sources.filter(s => s.name.trim());
 
     try {
       if (editId) {
@@ -166,10 +174,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           },
           correctAnswer,
           explanation: explanation.trim() || undefined,
-          sourceType,
-          sourceName: sourceName.trim(),
-          difficulty,
-          tags,
+          sources: validSources,
           important,
           veryImportant,
           dontUnderstand
@@ -189,10 +194,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           },
           correctAnswer,
           explanation: explanation.trim() || undefined,
-          sourceType,
-          sourceName: sourceName.trim(),
-          difficulty,
-          tags,
+          sources: validSources,
           important,
           veryImportant,
           dontUnderstand
@@ -203,7 +205,6 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           setQuestion('');
           setOptions({ A: '', B: '', C: '', D: '' });
           setExplanation('');
-          // Keep subject, chapter, sourceType, sourceName, tags for fast sequential entry!
           setTimeout(() => setSuccessMsg(null), 2500);
         } else {
           setSuccessMsg('Question saved successfully!');
@@ -218,48 +219,75 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center gap-3">
           <button
-            type="button"
+            id="back-to-bank-btn"
             onClick={() => onNavigate('question-bank')}
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+            title="Back to Question Bank"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {editId ? 'Edit Question' : 'Add Question'}
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {editId ? 'Edit Question' : 'Add New Question'}
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-500">
-              {editId ? 'Update question details and metadata' : 'Manual single-question entry'}
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {editId ? 'Modify question details and sources' : 'Create and catalog a multiple choice question'}
             </p>
           </div>
         </div>
+
+        <div className="flex items-center gap-2">
+          {!editId && (
+            <button
+              id="save-and-add-another-btn"
+              disabled={isSubmitting}
+              onClick={() => save(true)}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 transition disabled:opacity-50"
+            >
+              Save & Add Another
+            </button>
+          )}
+          <button
+            id="save-question-btn"
+            disabled={isSubmitting}
+            onClick={() => save(false)}
+            className="flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            <span>{editId ? 'Save Changes' : 'Save Question'}</span>
+          </button>
+        </div>
       </div>
 
+      {/* Messages */}
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-          {error}
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-sm">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-500" />
+          <span>{error}</span>
         </div>
       )}
-
       {successMsg && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm">
+          <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-500" />
           <span>{successMsg}</span>
         </div>
       )}
 
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 sm:p-7 space-y-6 shadow-xs">
-        {/* Subject & Chapter Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Main Form */}
+      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-6 shadow-sm">
+        {/* Curriculum Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
               Subject *
             </label>
             <select
+              id="select-subject"
               value={subjectId}
               onChange={e => handleSubjectChange(e.target.value)}
               className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
@@ -277,13 +305,14 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               Chapter *
             </label>
             <select
+              id="select-chapter"
               value={chapterId}
               onChange={e => setChapterId(e.target.value)}
               disabled={chapters.length === 0}
               className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 disabled:opacity-50"
             >
               {chapters.length === 0 ? (
-                <option value="">No chapters created under this subject</option>
+                <option value="">No chapters in this subject</option>
               ) : (
                 chapters.map(c => (
                   <option key={c.id} value={c.id}>
@@ -298,62 +327,59 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
         {/* Question Text */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-            Question Text *
+            Question Prompt *
           </label>
           <textarea
+            id="input-question-text"
             rows={3}
             value={question}
             onChange={e => setQuestion(e.target.value)}
-            placeholder="Type question statement here..."
-            className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 leading-relaxed"
+            placeholder="Type your multiple choice question prompt here..."
+            className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
           />
         </div>
 
-        {/* Options (A, B, C, D) and Correct Answer Picker */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-              Options (Select radio for correct answer) *
-            </label>
-            <span className="text-xs text-zinc-400">
-              Correct Answer:{' '}
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">{correctAnswer}</span>
-            </span>
-          </div>
+        {/* Options */}
+        <div className="space-y-3">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+            Options & Correct Answer *
+          </label>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Select the radio button beside the option that is the correct answer.
+          </p>
 
-          <div className="space-y-2.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(['A', 'B', 'C', 'D'] as const).map(optKey => {
               const isSelected = correctAnswer === optKey;
               return (
                 <div
                   key={optKey}
-                  className={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${
+                  className={`flex items-start gap-2.5 p-3 rounded-lg border transition ${
                     isSelected
-                      ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 dark:border-indigo-700'
-                      : 'border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60'
                   }`}
                 >
-                  <label className="flex items-center gap-2 cursor-pointer shrink-0 pl-1">
+                  <label className="flex items-center gap-2 cursor-pointer mt-1 flex-shrink-0">
                     <input
                       type="radio"
                       name="correctAnswer"
                       checked={isSelected}
                       onChange={() => setCorrectAnswer(optKey)}
-                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700"
                     />
-                    <span className="w-6 h-6 rounded-md bg-zinc-200 dark:bg-zinc-700 font-bold text-xs flex items-center justify-center text-zinc-800 dark:text-zinc-200">
+                    <span className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
                       {optKey}
                     </span>
                   </label>
-
-                  <input
-                    type="text"
+                  <textarea
+                    rows={2}
                     value={options[optKey]}
                     onChange={e =>
-                      setOptions({ ...options, [optKey]: e.target.value })
+                      setOptions(prev => ({ ...prev, [optKey]: e.target.value }))
                     }
-                    placeholder={`Option ${optKey} text`}
-                    className="flex-1 bg-transparent text-sm text-zinc-900 dark:text-zinc-100 border-none focus:outline-none px-2 py-1"
+                    placeholder={`Option ${optKey} text...`}
+                    className="flex-1 text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 resize-none"
                   />
                 </div>
               );
@@ -364,199 +390,178 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
         {/* Explanation */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-            Explanation / Solution (Optional)
+            Explanation / Solution Notes (Optional)
           </label>
           <textarea
+            id="input-explanation"
             rows={2}
             value={explanation}
             onChange={e => setExplanation(e.target.value)}
-            placeholder="Detailed explanation, formula derivation, or hint..."
-            className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 leading-relaxed"
+            placeholder="Detailed explanation, formula derivation, or reference..."
+            className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
           />
         </div>
 
-        {/* Source and Difficulty */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-              Source Type *
-            </label>
-            <select
-              value={sourceType}
-              onChange={e => setSourceType(e.target.value as SourceType)}
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
-            >
-              <option value="Board">Board</option>
-              <option value="School">School</option>
-              <option value="Guide">Guide</option>
-              <option value="Model Test">Model Test</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-              Source Name *
-            </label>
-            <input
-              type="text"
-              list="sourceNameList"
-              value={sourceName}
-              onChange={e => setSourceName(e.target.value)}
-              placeholder="e.g. Dhaka Board 2024"
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
-            />
-            <datalist id="sourceNameList">
-              {availableSources.map(s => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-              Difficulty
-            </label>
-            <select
-              value={difficulty}
-              onChange={e => setDifficulty(e.target.value as Difficulty)}
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
-            >
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Custom Tags */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-            Tags (e.g. formula, conceptual, calculation, trap)
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={e => setTagInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddTag(tagInput);
-                }
-              }}
-              placeholder="Type tag and press Add..."
-              className="flex-1 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
-            />
+        {/* MULTIPLE SOURCES SECTION */}
+        <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                Sources ({sources.length})
+              </label>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Add one or multiple sources (Board, School, or Guide like Panjaree, Lecture, Royal, Chorcha, eProshnobank).
+              </p>
+            </div>
             <button
               type="button"
-              onClick={() => handleAddTag(tagInput)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300"
+              id="add-source-btn"
+              onClick={handleAddSource}
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition"
             >
-              Add Tag
+              <Plus className="w-3.5 h-3.5" />
+              Add Source
             </button>
           </div>
 
-          {tags.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-2">
-              {tags.map(t => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
-                >
-                  <TagIcon className="w-3 h-3" />
-                  <span>#{t}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTag(t)}
-                    className="ml-1 text-indigo-400 hover:text-indigo-700 font-bold"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="space-y-3">
+            {sources.map((src, idx) => (
+              <div
+                key={idx}
+                className="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-800/50 space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-36 flex-shrink-0">
+                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      Type
+                    </label>
+                    <select
+                      value={src.type}
+                      onChange={e => handleUpdateSource(idx, { type: e.target.value })}
+                      className="w-full text-xs font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                    >
+                      <option value="Board">Board</option>
+                      <option value="School">School</option>
+                      <option value="Guide">Guide</option>
+                    </select>
+                  </div>
+
+                  <div className="flex-1">
+                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      {src.type === 'Board'
+                        ? 'Board Exam / Year'
+                        : src.type === 'School'
+                        ? 'College / School Name'
+                        : 'Guide Name'}
+                    </label>
+                    <input
+                      type="text"
+                      list={`srcList-${idx}`}
+                      value={src.name}
+                      onChange={e => handleUpdateSource(idx, { name: e.target.value })}
+                      placeholder={
+                        src.type === 'Board'
+                          ? 'e.g. Dhaka Board 2024, Rajshahi Board 2023'
+                          : src.type === 'School'
+                          ? 'e.g. Notre Dame College, Viqarunnisa Noon School'
+                          : 'e.g. Panjaree, Lecture, Royal, Chorcha, eProshnobank'
+                      }
+                      className="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                    />
+                    <datalist id={`srcList-${idx}`}>
+                      {availableSources.map(s => (
+                        <option key={s} value={s} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div className="flex-shrink-0 self-end pb-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSource(idx)}
+                      className="p-1.5 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                      title="Remove source"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick guide selection pills if Guide type is selected */}
+                {src.type === 'Guide' && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Quick select guide:
+                    </span>
+                    {GUIDE_OPTIONS.map(g => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => handleUpdateSource(idx, { name: g })}
+                        className={`text-xs px-2.5 py-0.5 rounded-full border transition font-medium ${
+                          src.name.toLowerCase() === g.toLowerCase()
+                            ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-700'
+                            : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Independent Flags (Important, Very Important, Don't Understand) */}
-        <div>
+        {/* Question Flags */}
+        <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-2">
-            Question Flags (Independent)
+            Flags & Study Bookmarks
           </label>
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
+              id="flag-important-toggle"
               onClick={() => setImportant(!important)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition ${
                 important
-                  ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-700'
-                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
+                  ? 'border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700'
+                  : 'border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
               }`}
             >
-              <Star className={`w-4 h-4 ${important ? 'fill-amber-500 text-amber-500' : ''}`} />
-              <span>⭐ Important</span>
+              <Bookmark className={`w-3.5 h-3.5 ${important ? 'fill-amber-500 text-amber-500' : ''}`} />
+              <span>Important</span>
             </button>
 
             <button
               type="button"
+              id="flag-very-important-toggle"
               onClick={() => setVeryImportant(!veryImportant)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition ${
                 veryImportant
-                  ? 'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-700'
-                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
+                  ? 'border-rose-400 bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-700'
+                  : 'border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
               }`}
             >
-              <Flame className={`w-4 h-4 ${veryImportant ? 'fill-rose-500 text-rose-500' : ''}`} />
-              <span>🔥 Very Important</span>
+              <Flame className={`w-3.5 h-3.5 ${veryImportant ? 'fill-rose-500 text-rose-500' : ''}`} />
+              <span>Very Important</span>
             </button>
 
             <button
               type="button"
+              id="flag-dont-understand-toggle"
               onClick={() => setDontUnderstand(!dontUnderstand)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition ${
                 dontUnderstand
-                  ? 'bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/60 dark:text-purple-200 dark:border-purple-700'
-                  : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
+                  ? 'border-purple-400 bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-700'
+                  : 'border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
               }`}
             >
-              <HelpCircle className={`w-4 h-4 ${dontUnderstand ? 'text-purple-600' : ''}`} />
-              <span>❓ Don&apos;t Understand</span>
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Don't Understand</span>
             </button>
           </div>
-        </div>
-
-        {/* Submit Actions (Prompt 14: Save Question, Save & Add Another, Cancel) */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-          <button
-            type="button"
-            onClick={() => onNavigate('question-bank')}
-            className="px-4 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-
-          {!editId && (
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => save(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Save & Add Another</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={() => save(false)}
-            className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-xs"
-          >
-            <Save className="w-4 h-4" />
-            <span>{editId ? 'Update Question' : 'Save Question'}</span>
-          </button>
         </div>
       </div>
     </div>
