@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Save,
@@ -12,7 +12,11 @@ import {
   FileText,
   ListOrdered,
   Layers,
-  Sparkles
+  Sparkles,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { getAllSubjects, getChaptersBySubject } from '../services/subjectService';
 import {
@@ -27,8 +31,12 @@ import {
   updateCommonInfo
 } from '../services/commonInfoService';
 import { toRomanNumeral } from '../utils/romanNumerals';
-import type { Subject, Chapter, QuestionSource, QuestionType, Question } from '../types';
+import type { Subject, Chapter, QuestionSource, QuestionType, Question, QuestionImage } from '../types';
 import { GUIDE_OPTIONS, QUESTION_TYPE_LABELS } from '../types';
+import { ImageUploader } from '../components/common/ImageUploader';
+import { MathChemistryToolbar } from '../components/common/MathChemistryToolbar';
+import { RichContentRenderer } from '../components/common/RichContentRenderer';
+import { validateImageFile, storeImage, deleteMediaFile } from '../services/imageStorageService';
 
 interface AddQuestionPageProps {
   editId?: string | null;
@@ -38,10 +46,13 @@ interface AddQuestionPageProps {
 interface CommonStemSubQuestion {
   id?: string;
   question: string;
+  images?: QuestionImage[];
   statements?: string[];
   options: { A: string; B: string; C: string; D: string };
+  optionImages?: Record<string, QuestionImage>;
   correctAnswer: 'A' | 'B' | 'C' | 'D';
   explanation?: string;
+  explanationImages?: QuestionImage[];
   important: boolean;
   veryImportant: boolean;
   dontUnderstand: boolean;
@@ -64,6 +75,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
   // Standard & Multiple Statement State
   const [question, setQuestion] = useState('');
+  const [images, setImages] = useState<QuestionImage[]>([]);
   const [statements, setStatements] = useState<string[]>(['', '', '']);
   const [options, setOptions] = useState<{ A: string; B: string; C: string; D: string }>({
     A: '',
@@ -71,28 +83,40 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
     C: '',
     D: ''
   });
+  const [optionImages, setOptionImages] = useState<Record<string, QuestionImage>>({});
   const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [explanation, setExplanation] = useState('');
+  const [explanationImages, setExplanationImages] = useState<QuestionImage[]>([]);
+
+  // Live Preview Mode Toggle
+  const [showLivePreview, setShowLivePreview] = useState(false);
 
   // Common Stem State
   const [commonInfoId, setCommonInfoId] = useState<string | undefined>(undefined);
   const [commonInfoTitle, setCommonInfoTitle] = useState('অভিন্ন তথ্য ১');
   const [commonInfoContent, setCommonInfoContent] = useState('');
+  const [commonInfoImages, setCommonInfoImages] = useState<QuestionImage[]>([]);
   const [groupQuestions, setGroupQuestions] = useState<CommonStemSubQuestion[]>([
     {
       question: '',
+      images: [],
       options: { A: '', B: '', C: '', D: '' },
+      optionImages: {},
       correctAnswer: 'A',
       explanation: '',
+      explanationImages: [],
       important: false,
       veryImportant: false,
       dontUnderstand: false
     },
     {
       question: '',
+      images: [],
       options: { A: '', B: '', C: '', D: '' },
+      optionImages: {},
       correctAnswer: 'A',
       explanation: '',
+      explanationImages: [],
       important: false,
       veryImportant: false,
       dontUnderstand: false
@@ -134,14 +158,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           setChapters(chaps);
           setChapterId(q.chapterId);
           setQuestion(q.question);
+          setImages(q.images || []);
           setOptions({
             A: q.options['A'] || '',
             B: q.options['B'] || '',
             C: q.options['C'] || '',
             D: q.options['D'] || ''
           });
+          setOptionImages(q.optionImages || {});
           setCorrectAnswer((q.correctAnswer as any) || 'A');
           setExplanation(q.explanation || '');
+          setExplanationImages(q.explanationImages || []);
 
           if (q.statements && q.statements.length > 0) {
             setStatements(q.statements);
@@ -153,6 +180,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             if (cInfo) {
               setCommonInfoTitle(cInfo.title);
               setCommonInfoContent(cInfo.content);
+              setCommonInfoImages(cInfo.images || []);
             }
           }
 
@@ -270,6 +298,43 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
     );
   };
 
+  // Math & Chemistry quick insertion helpers
+  const handleInsertMathToQuestion = (latex: string, displayMode?: boolean) => {
+    const formatted = displayMode ? `\n\\[${latex}\\]\n` : ` $${latex}$ `;
+    setQuestion(prev => (prev ? `${prev}${formatted}` : formatted.trim()));
+  };
+
+  const handleInsertChemToQuestion = (chem: string, _isReaction?: boolean) => {
+    const formatted = ` [chem]${chem}[/chem] `;
+    setQuestion(prev => (prev ? `${prev}${formatted}` : formatted.trim()));
+  };
+
+  const handleOptionImageUpload = async (optKey: string, file: File) => {
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid image file.');
+      return;
+    }
+    try {
+      const stored = await storeImage(file, `option_${optKey}_${file.name}`);
+      setOptionImages(prev => ({ ...prev, [optKey]: stored }));
+    } catch (err: any) {
+      setError(err.message || 'Error uploading option image.');
+    }
+  };
+
+  const handleRemoveOptionImage = async (optKey: string) => {
+    const img = optionImages[optKey];
+    if (img?.id) {
+      await deleteMediaFile(img.id).catch(() => {});
+    }
+    setOptionImages(prev => {
+      const copy = { ...prev };
+      delete copy[optKey];
+      return copy;
+    });
+  };
+
   const validate = (): boolean => {
     if (!subjectId) {
       setError('Please select a subject');
@@ -365,14 +430,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             commonInfoId: undefined, // Disconnect if previously linked
             statements: undefined,
             question: question.trim(),
+            images,
             options: {
               A: options.A.trim(),
               B: options.B.trim(),
               C: options.C.trim(),
               D: options.D.trim()
             },
+            optionImages,
             correctAnswer,
             explanation: explanation.trim() || undefined,
+            explanationImages,
             sources: validSources,
             important,
             veryImportant,
@@ -386,14 +454,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             chapterId,
             questionType: 'STANDARD',
             question: question.trim(),
+            images,
             options: {
               A: options.A.trim(),
               B: options.B.trim(),
               C: options.C.trim(),
               D: options.D.trim()
             },
+            optionImages,
             correctAnswer,
             explanation: explanation.trim() || undefined,
+            explanationImages,
             sources: validSources,
             important,
             veryImportant,
@@ -403,8 +474,11 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           if (keepOpen) {
             setSuccessMsg('Saved! Ready for next question.');
             setQuestion('');
+            setImages([]);
             setOptions({ A: '', B: '', C: '', D: '' });
+            setOptionImages({});
             setExplanation('');
+            setExplanationImages([]);
             setTimeout(() => setSuccessMsg(null), 2500);
           } else {
             setSuccessMsg('Question saved successfully!');
@@ -422,14 +496,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             commonInfoId: undefined,
             statements: cleanStatements,
             question: question.trim(),
+            images,
             options: {
               A: options.A.trim(),
               B: options.B.trim(),
               C: options.C.trim(),
               D: options.D.trim()
             },
+            optionImages,
             correctAnswer,
             explanation: explanation.trim() || undefined,
+            explanationImages,
             sources: validSources,
             important,
             veryImportant,
@@ -444,14 +521,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             questionType: 'MULTIPLE_STATEMENT',
             statements: cleanStatements,
             question: question.trim(),
+            images,
             options: {
               A: options.A.trim(),
               B: options.B.trim(),
               C: options.C.trim(),
               D: options.D.trim()
             },
+            optionImages,
             correctAnswer,
             explanation: explanation.trim() || undefined,
+            explanationImages,
             sources: validSources,
             important,
             veryImportant,
@@ -461,9 +541,12 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           if (keepOpen) {
             setSuccessMsg('Saved! Ready for next question.');
             setQuestion('');
+            setImages([]);
             setStatements(['', '', '']);
             setOptions({ A: '', B: '', C: '', D: '' });
+            setOptionImages({});
             setExplanation('');
+            setExplanationImages([]);
             setTimeout(() => setSuccessMsg(null), 2500);
           } else {
             setSuccessMsg('Question saved successfully!');
@@ -478,6 +561,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             await updateCommonInfo(cId, {
               title: commonInfoTitle.trim() || 'অভিন্ন তথ্য',
               content: commonInfoContent.trim(),
+              images: commonInfoImages,
               subjectId,
               chapterId
             });
@@ -485,6 +569,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             const createdInfo = await createCommonInfo({
               title: commonInfoTitle.trim() || 'অভিন্ন তথ্য',
               content: commonInfoContent.trim(),
+              images: commonInfoImages,
               subjectId,
               chapterId
             });
@@ -498,14 +583,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             questionType: 'COMMON_STEM',
             commonInfoId: cId,
             question: question.trim(),
+            images,
             options: {
               A: options.A.trim(),
               B: options.B.trim(),
               C: options.C.trim(),
               D: options.D.trim()
             },
+            optionImages,
             correctAnswer,
             explanation: explanation.trim() || undefined,
+            explanationImages,
             sources: validSources,
             important,
             veryImportant,
@@ -519,6 +607,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           const createdInfo = await createCommonInfo({
             title: commonInfoTitle.trim() || 'অভিন্ন তথ্য ১',
             content: commonInfoContent.trim(),
+            images: commonInfoImages,
             subjectId,
             chapterId
           });
@@ -530,14 +619,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               questionType: 'COMMON_STEM',
               commonInfoId: createdInfo.id,
               question: gq.question.trim(),
+              images: gq.images || [],
               options: {
                 A: gq.options.A.trim(),
                 B: gq.options.B.trim(),
                 C: gq.options.C.trim(),
                 D: gq.options.D.trim()
               },
+              optionImages: gq.optionImages,
               correctAnswer: gq.correctAnswer,
               explanation: gq.explanation?.trim() || undefined,
+              explanationImages: gq.explanationImages || [],
               sources: validSources,
               important: gq.important,
               veryImportant: gq.veryImportant,
@@ -549,21 +641,28 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             setSuccessMsg(`Created stem with ${groupQuestions.length} questions! Ready for next.`);
             setCommonInfoTitle('অভিন্ন তথ্য');
             setCommonInfoContent('');
+            setCommonInfoImages([]);
             setGroupQuestions([
               {
                 question: '',
+                images: [],
                 options: { A: '', B: '', C: '', D: '' },
+                optionImages: {},
                 correctAnswer: 'A',
                 explanation: '',
+                explanationImages: [],
                 important: false,
                 veryImportant: false,
                 dontUnderstand: false
               },
               {
                 question: '',
+                images: [],
                 options: { A: '', B: '', C: '', D: '' },
+                optionImages: {},
                 correctAnswer: 'A',
                 explanation: '',
+                explanationImages: [],
                 important: false,
                 veryImportant: false,
                 dontUnderstand: false
@@ -609,6 +708,18 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowLivePreview(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition ${
+              showLivePreview
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-700 dark:text-indigo-300 shadow-xs'
+                : 'border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
+            }`}
+          >
+            {showLivePreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <span>{showLivePreview ? 'Hide Preview' : 'Live Preview'}</span>
+          </button>
           {!editId && (
             <button
               id="save-and-add-another-btn"
@@ -630,6 +741,120 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           </button>
         </div>
       </div>
+
+      {/* Live Preview Card */}
+      {showLivePreview && (
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border-2 border-indigo-500/50 p-5 space-y-4 shadow-md animate-in fade-in">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                Live Interactive Student Preview
+              </span>
+            </div>
+            <span className="text-[11px] text-zinc-400">
+              Updates in real-time as you type or upload figures
+            </span>
+          </div>
+
+          {/* Stimulus preview if COMMON_STEM */}
+          {questionType === 'COMMON_STEM' && (commonInfoContent || commonInfoImages.length > 0) && (
+            <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-2">
+              <div className="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5" />
+                <span>{commonInfoTitle || 'উদ্দীপক'}</span>
+              </div>
+              <RichContentRenderer
+                content={commonInfoContent}
+                images={commonInfoImages}
+                className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed"
+              />
+            </div>
+          )}
+
+          {/* Question Prompt preview */}
+          <div className="space-y-2">
+            <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              <RichContentRenderer
+                content={question || '(Question prompt is empty)'}
+                images={images}
+              />
+            </div>
+
+            {/* Multiple Statements preview */}
+            {questionType === 'MULTIPLE_STATEMENT' && statements.length > 0 && (
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 p-3.5 space-y-1.5">
+                {statements.map((stmt, sIdx) => (
+                  <div key={sIdx} className="flex items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                    <span className="font-mono font-bold text-xs bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
+                      {toRomanNumeral(sIdx + 1)}.
+                    </span>
+                    <RichContentRenderer content={stmt || `Statement ${sIdx + 1}`} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Options preview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+              {(['A', 'B', 'C', 'D'] as const).map(optKey => {
+                const optText = options[optKey];
+                const optImg = optionImages[optKey];
+                const isCorrect = correctAnswer === optKey;
+
+                return (
+                  <div
+                    key={optKey}
+                    className={`p-3 rounded-xl border text-sm flex items-start gap-2.5 ${
+                      isCorrect
+                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100 font-medium'
+                        : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-800 dark:text-zinc-200'
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                        isCorrect
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'
+                      }`}
+                    >
+                      {optKey}
+                    </span>
+                    <div className="flex-1">
+                      <RichContentRenderer content={optText || `Option ${optKey}`} />
+                      {optImg && (
+                        <div className="mt-1">
+                          <img
+                            src={optImg.url}
+                            alt={`Option ${optKey} figure`}
+                            className="max-h-20 object-contain rounded border border-zinc-200 dark:border-zinc-700"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {isCorrect && (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider ml-auto">
+                        Correct
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Explanation preview */}
+            {(explanation || explanationImages.length > 0) && (
+              <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">Explanation:</span>
+                <RichContentRenderer
+                  content={explanation}
+                  images={explanationImages}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Messages & Warnings */}
       {typeSwitchWarning && (
@@ -816,10 +1041,21 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-              Passage / Scenario / Information Content *
-            </label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                Passage / Scenario / Information Content *
+              </label>
+            </div>
+            <MathChemistryToolbar
+              onInsertMath={(latex, isBlock) => {
+                const formatted = isBlock ? `\n$$${latex}$$\n` : `$${latex}$`;
+                setCommonInfoContent(prev => prev + formatted);
+              }}
+              onInsertChemistry={raw => {
+                setCommonInfoContent(prev => prev + `\\ce{${raw}}`);
+              }}
+            />
             <textarea
               rows={4}
               value={commonInfoContent}
@@ -827,6 +1063,13 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               placeholder="উদ্দীপক বা সাধারণ তথ্যটি এখানে লিখুন... যেমন: একটি বস্তুর ভর 5 kg এবং তার বেগ 10 m/s..."
               className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 leading-relaxed font-sans"
             />
+            <div className="pt-2">
+              <ImageUploader
+                images={commonInfoImages}
+                onChange={setCommonInfoImages}
+                label="উদ্দীপকের চিত্র বা ডায়াগ্রাম (Stimulus Diagram / Images)"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -1052,10 +1295,16 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
         /* STANDARD, MULTIPLE_STATEMENT, or COMMON_STEM in single-edit mode */
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-6 shadow-xs">
           {/* Question Text */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-              Question Prompt *
-            </label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                Question Prompt *
+              </label>
+            </div>
+            <MathChemistryToolbar
+              onInsertMath={handleInsertMathToQuestion}
+              onInsertChemistry={handleInsertChemToQuestion}
+            />
             <textarea
               id="input-question-text"
               rows={3}
@@ -1064,10 +1313,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               placeholder={
                 questionType === 'MULTIPLE_STATEMENT'
                   ? 'e.g. নিচের কোনটি সঠিক? বা প্রদত্ত তথ্যের আলোকে কোনটি সত্য?'
-                  : 'Type your multiple choice question prompt here...'
+                  : 'Type your multiple choice question prompt here... (supports LaTeX $x^2$ and \\ce{H2O})'
               }
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 font-sans leading-relaxed"
             />
+            <div className="pt-1">
+              <ImageUploader
+                images={images}
+                onChange={setImages}
+                label="প্রশ্নের চিত্র বা ডায়াগ্রাম (Question Diagram / Figure - Optional)"
+              />
+            </div>
           </div>
 
           {/* Options */}
@@ -1076,42 +1332,84 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               Options & Correct Answer *
             </label>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Select the radio button beside the option that is the correct answer.
+              Select the radio button beside the correct answer. You can also attach figure images to individual options.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {(['A', 'B', 'C', 'D'] as const).map(optKey => {
                 const isSelected = correctAnswer === optKey;
+                const optImg = optionImages[optKey];
+
                 return (
                   <div
                     key={optKey}
-                    className={`flex items-start gap-2.5 p-3 rounded-lg border transition ${
+                    className={`flex flex-col gap-2 p-3 rounded-lg border transition ${
                       isSelected
                         ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
                         : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60'
                     }`}
                   >
-                    <label className="flex items-center gap-2 cursor-pointer mt-1 shrink-0">
-                      <input
-                        type="radio"
-                        name="correctAnswer"
-                        checked={isSelected}
-                        onChange={() => setCorrectAnswer(optKey)}
-                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700"
+                    <div className="flex items-start gap-2.5">
+                      <label className="flex items-center gap-2 cursor-pointer mt-1 shrink-0">
+                        <input
+                          type="radio"
+                          name="correctAnswer"
+                          checked={isSelected}
+                          onChange={() => setCorrectAnswer(optKey)}
+                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700"
+                        />
+                        <span className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
+                          {optKey}
+                        </span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={options[optKey]}
+                        onChange={e =>
+                          setOptions(prev => ({ ...prev, [optKey]: e.target.value }))
+                        }
+                        placeholder={`Option ${optKey} text (or formula)...`}
+                        className="flex-1 text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 resize-none"
                       />
-                      <span className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
-                        {optKey}
-                      </span>
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={options[optKey]}
-                      onChange={e =>
-                        setOptions(prev => ({ ...prev, [optKey]: e.target.value }))
-                      }
-                      placeholder={`Option ${optKey} text...`}
-                      className="flex-1 text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 resize-none"
-                    />
+                    </div>
+
+                    {/* Option Figure Upload */}
+                    <div className="pl-6 flex items-center justify-between gap-2">
+                      {optImg ? (
+                        <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                          <img
+                            src={optImg.url}
+                            alt={`Option ${optKey}`}
+                            className="w-9 h-9 object-contain rounded border border-zinc-200 dark:border-zinc-700"
+                          />
+                          <span className="text-[11px] text-zinc-500 truncate max-w-[110px]">
+                            {optImg.caption || `Option ${optKey} Image`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOptionImage(optKey)}
+                            className="p-1 text-rose-500 hover:text-rose-700 ml-1"
+                            title="Remove option image"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                          <ImageIcon className="w-3 h-3 text-indigo-500" />
+                          <span>Attach Option Figure</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) handleOptionImageUpload(optKey, file);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1119,18 +1417,36 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           </div>
 
           {/* Explanation */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-              Explanation / Solution Notes (Optional)
-            </label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                Explanation / Solution Notes (Optional)
+              </label>
+            </div>
+            <MathChemistryToolbar
+              onInsertMath={(latex, isBlock) => {
+                const formatted = isBlock ? `\n$$${latex}$$\n` : `$${latex}$`;
+                setExplanation(prev => prev + formatted);
+              }}
+              onInsertChemistry={raw => {
+                setExplanation(prev => prev + `\\ce{${raw}}`);
+              }}
+            />
             <textarea
               id="input-explanation"
               rows={2}
               value={explanation}
               onChange={e => setExplanation(e.target.value)}
               placeholder="Detailed explanation, formula derivation, or reference..."
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 leading-relaxed font-sans"
             />
+            <div className="pt-1">
+              <ImageUploader
+                images={explanationImages}
+                onChange={setExplanationImages}
+                label="ব্যাখ্যার ডায়াগ্রাম বা সমাধান চিত্র (Explanation Diagrams - Optional)"
+              />
+            </div>
           </div>
 
           {/* Status & Priority Flags */}

@@ -39,6 +39,8 @@ import {
 import { getCommonInfoById } from '../services/commonInfoService';
 import { toRomanNumeral } from '../utils/romanNumerals';
 import { FlagIcons } from '../components/common/FlagIcons';
+import { RichContentRenderer } from '../components/common/RichContentRenderer';
+import { ImageLightbox } from '../components/common/ImageLightbox';
 import type {
   Question,
   Subject,
@@ -1001,15 +1003,23 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                   })()}
                 </div>
 
-                <div className="text-sm sm:text-base text-zinc-800 dark:text-zinc-200 leading-relaxed font-sans whitespace-pre-wrap">
-                  {commonInfoMap[currentQ.commonInfoId].content}
+                <div className="text-sm sm:text-base text-zinc-800 dark:text-zinc-200 leading-relaxed font-sans">
+                  <RichContentRenderer
+                    content={commonInfoMap[currentQ.commonInfoId].content}
+                    contentBlocks={commonInfoMap[currentQ.commonInfoId].contentBlocks}
+                    images={commonInfoMap[currentQ.commonInfoId].images}
+                  />
                 </div>
               </div>
             )}
 
             {/* Prompt */}
             <div className="text-base sm:text-lg font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
-              {currentQ.question}
+              <RichContentRenderer
+                content={currentQ.question}
+                contentBlocks={currentQ.contentBlocks}
+                images={currentQ.images}
+              />
             </div>
 
             {/* MULTIPLE STATEMENT LIST (i, ii, iii...) */}
@@ -1020,7 +1030,9 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                     <span className="font-mono font-bold text-xs bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded shrink-0 mt-0.5">
                       {toRomanNumeral(sIdx + 1)}.
                     </span>
-                    <span className="flex-1 leading-relaxed">{stmt}</span>
+                    <div className="flex-1 leading-relaxed">
+                      <RichContentRenderer content={stmt} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1030,6 +1042,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
             <div className="space-y-3">
               {(['A', 'B', 'C', 'D'] as const).map(optKey => {
                 const optText = currentQ.options[optKey];
+                const optImg = currentQ.optionImages?.[optKey];
                 const isSelected = currentAnswer === optKey;
 
                 let btnStyles =
@@ -1067,7 +1080,18 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                     >
                       {optKey}
                     </span>
-                    <span className="text-sm sm:text-base flex-1">{optText}</span>
+                    <div className="flex-1">
+                      <RichContentRenderer content={optText} />
+                      {optImg && (
+                        <div className="mt-2 inline-block max-w-[220px]" onClick={e => e.stopPropagation()}>
+                          <ImageLightbox
+                            image={optImg}
+                            alt={`Option ${optKey} figure`}
+                            className="max-h-24 sm:max-h-32 object-contain rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -1088,10 +1112,15 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                   )}
                 </div>
 
-                {currentQ.explanation ? (
+                {currentQ.explanation || (currentQ.explanationImages && currentQ.explanationImages.length > 0) ? (
                   <div className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed pt-1">
                     <span className="font-semibold text-zinc-900 dark:text-zinc-100">Explanation: </span>
-                    {currentQ.explanation}
+                    <div className="mt-1">
+                      <RichContentRenderer
+                        content={currentQ.explanation || ''}
+                        images={currentQ.explanationImages}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="text-xs text-zinc-400 italic">No explanation provided for this question.</div>
@@ -1230,22 +1259,30 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                         </span>
                         <div>
                           <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
-                            {q.question}
+                            <RichContentRenderer
+                              content={q.question}
+                              contentBlocks={q.contentBlocks}
+                              images={q.images}
+                            />
                           </div>
                           {q.commonInfoId && commonInfoMap[q.commonInfoId] && (
                             <div className="mt-1.5 text-[11px] p-2 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 text-indigo-900 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-900/40">
                               <span className="font-bold">উদ্দীপক: </span>
-                              {commonInfoMap[q.commonInfoId].content}
+                              <RichContentRenderer
+                                content={commonInfoMap[q.commonInfoId].content}
+                                contentBlocks={commonInfoMap[q.commonInfoId].contentBlocks}
+                                images={commonInfoMap[q.commonInfoId].images}
+                              />
                             </div>
                           )}
                           {q.statements && q.statements.length > 0 && (
                             <div className="mt-1.5 space-y-0.5 text-xs pl-3 border-l-2 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
                               {q.statements.map((st, sIdx) => (
-                                <div key={sIdx}>
-                                  <span className="font-mono font-bold text-[10px] text-zinc-500 mr-1.5">
+                                <div key={sIdx} className="flex items-start gap-1.5">
+                                  <span className="font-mono font-bold text-[10px] text-zinc-500 shrink-0">
                                     {toRomanNumeral(sIdx + 1)}.
                                   </span>
-                                  <span>{st}</span>
+                                  <RichContentRenderer content={st} />
                                 </div>
                               ))}
                             </div>
@@ -1287,11 +1324,12 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                       {Object.entries(q.options).map(([k, v]) => {
                         const optCorrect = k.toUpperCase() === q.correctAnswer.toUpperCase();
                         const optChosen = userAns && k.toUpperCase() === userAns.toUpperCase();
+                        const optImg = q.optionImages?.[k];
 
                         return (
                           <div
                             key={k}
-                            className={`p-2 rounded-lg border text-xs flex items-center gap-2 ${
+                            className={`p-2 rounded-lg border text-xs flex items-start gap-2 ${
                               optCorrect
                                 ? 'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-semibold'
                                 : optChosen
@@ -1299,19 +1337,35 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                                 : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
                             }`}
                           >
-                            <span className="font-bold">{k}:</span>
-                            <span>{v}</span>
+                            <span className="font-bold shrink-0">{k}:</span>
+                            <div className="flex-1">
+                              <RichContentRenderer content={v} />
+                              {optImg && (
+                                <div className="mt-1">
+                                  <ImageLightbox
+                                    image={optImg}
+                                    alt={`Option ${k} diagram`}
+                                    className="max-h-16 object-contain rounded"
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
                     </div>
 
-                    {q.explanation && (
+                    {(q.explanation || (q.explanationImages && q.explanationImages.length > 0)) && (
                       <div className="text-xs text-zinc-500 dark:text-zinc-400 pt-1">
                         <span className="font-semibold text-zinc-700 dark:text-zinc-300">
                           Explanation:
                         </span>{' '}
-                        {q.explanation}
+                        <div className="mt-1">
+                          <RichContentRenderer
+                            content={q.explanation || ''}
+                            images={q.explanationImages}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

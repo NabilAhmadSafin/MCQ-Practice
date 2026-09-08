@@ -1,11 +1,21 @@
 import Dexie, { type Table } from 'dexie';
 import type { Subject, Chapter, Question, Attempt, PracticeSession, CommonInformation } from '../types';
 
+export interface StoredMediaFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  data: Blob;
+  createdAt: number;
+}
+
 export class MCQDatabase extends Dexie {
   subjects!: Table<Subject, string>;
   chapters!: Table<Chapter, string>;
   questions!: Table<Question, string>;
   commonInformation!: Table<CommonInformation, string>;
+  mediaFiles!: Table<StoredMediaFile, string>;
   attempts!: Table<Attempt, string>;
   sessions!: Table<PracticeSession, string>;
 
@@ -55,6 +65,16 @@ export class MCQDatabase extends Dexie {
           q.questionType = 'STANDARD';
         }
       });
+    });
+
+    this.version(4).stores({
+      subjects: 'id, name, order, createdAt',
+      chapters: 'id, subjectId, name, order, [subjectId+order], createdAt',
+      questions: 'id, subjectId, chapterId, [subjectId+chapterId], questionType, commonInfoId, important, veryImportant, dontUnderstand, *sourceTypes, *guides, createdAt, updatedAt',
+      commonInformation: 'id, subjectId, chapterId, createdAt, updatedAt',
+      mediaFiles: 'id, name, mimeType, size, createdAt',
+      attempts: 'id, questionId, sessionId, isCorrect, attemptedAt, [questionId+isCorrect]',
+      sessions: 'id, startedAt, completedAt, mode, subjectId, chapterId'
     });
   }
 }

@@ -1,5 +1,13 @@
 import { db } from '../db';
-import type { Question, QuestionFilter, QuestionSource, CorrectAnswer, QuestionType } from '../types';
+import type { 
+  Question, 
+  QuestionFilter, 
+  QuestionSource, 
+  CorrectAnswer, 
+  QuestionType,
+  QuestionImage,
+  ContentBlock
+} from '../types';
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -104,11 +112,17 @@ export async function createQuestion(data: {
   chapterId: string;
   questionType?: QuestionType;
   question: string;
+  images?: QuestionImage[];
+  contentBlocks?: ContentBlock[];
   statements?: string[];
+  statementImages?: Record<number, QuestionImage[]>;
   commonInfoId?: string;
   options: Record<string, string>;
+  optionImages?: Record<string, QuestionImage>;
   correctAnswer: CorrectAnswer;
   explanation?: string;
+  explanationImages?: QuestionImage[];
+  explanationBlocks?: ContentBlock[];
   sources: QuestionSource[];
   important: boolean;
   veryImportant: boolean;
@@ -122,11 +136,17 @@ export async function createQuestion(data: {
     chapterId: data.chapterId,
     questionType: data.questionType || 'STANDARD',
     question: data.question,
+    images: data.images || [],
+    contentBlocks: data.contentBlocks,
     statements: data.statements,
+    statementImages: data.statementImages,
     commonInfoId: data.commonInfoId,
     options: data.options,
+    optionImages: data.optionImages,
     correctAnswer: data.correctAnswer,
     explanation: data.explanation,
+    explanationImages: data.explanationImages || [],
+    explanationBlocks: data.explanationBlocks,
     sources,
     sourceTypes,
     guides,

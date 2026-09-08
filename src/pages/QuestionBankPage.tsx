@@ -34,6 +34,8 @@ import { getCommonInfoById } from '../services/commonInfoService';
 import { toRomanNumeral } from '../utils/romanNumerals';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FlagIcons } from '../components/common/FlagIcons';
+import { RichContentRenderer } from '../components/common/RichContentRenderer';
+import { ImageLightbox } from '../components/common/ImageLightbox';
 import type { Question, QuestionFilter, Subject, Chapter, QuestionStats, QuestionType, CommonInformation } from '../types';
 import { GUIDE_OPTIONS, QUESTION_TYPE_LABELS } from '../types';
 
@@ -1221,15 +1223,31 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                       {isExpanded && (
                         <tr className="bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-800">
                           <td colSpan={7} className="p-4 space-y-3">
+                            {/* Full Question Prompt & Question Figures */}
+                            <div className="p-3.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-sm space-y-2">
+                              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+                                Question Prompt:
+                              </span>
+                              <RichContentRenderer
+                                content={q.question}
+                                contentBlocks={q.contentBlocks}
+                                images={q.images}
+                                className="text-zinc-900 dark:text-zinc-100 font-medium leading-relaxed"
+                              />
+                            </div>
+
                             {/* Common Information Stimulus if COMMON_STEM */}
                             {q.commonInfoId && commonInfoMap[q.commonInfoId] && (
                               <div className="p-3.5 rounded-lg bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs space-y-1.5">
                                 <div className="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
                                   <span>উদ্দীপক / অনুচ্ছেদ: {commonInfoMap[q.commonInfoId].title || 'অভিন্ন তথ্যভিত্তিক'}</span>
                                 </div>
-                                <p className="text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">
-                                  {commonInfoMap[q.commonInfoId].content}
-                                </p>
+                                <RichContentRenderer
+                                  content={commonInfoMap[q.commonInfoId].content}
+                                  contentBlocks={commonInfoMap[q.commonInfoId].contentBlocks}
+                                  images={commonInfoMap[q.commonInfoId].images}
+                                  className="text-zinc-800 dark:text-zinc-200 leading-relaxed"
+                                />
                               </div>
                             )}
 
@@ -1245,7 +1263,9 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                                       <span className="font-mono font-bold text-[10px] text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
                                         {toRomanNumeral(sIdx + 1)}.
                                       </span>
-                                      <span className="text-zinc-800 dark:text-zinc-200">{stmt}</span>
+                                      <div className="flex-1 text-zinc-800 dark:text-zinc-200">
+                                        <RichContentRenderer content={stmt} />
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -1256,31 +1276,48 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                               Options & Explanation
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {(['A', 'B', 'C', 'D'] as const).map(k => (
-                                <div
-                                  key={k}
-                                  className={`p-2.5 rounded-lg border text-xs flex items-start gap-2 ${
-                                    q.correctAnswer === k
-                                      ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 font-semibold'
-                                      : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300'
-                                  }`}
-                                >
-                                  <span className="w-4 h-4 rounded bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
-                                    {k}
-                                  </span>
-                                  <span>{q.options[k] || '—'}</span>
-                                </div>
-                              ))}
+                              {(['A', 'B', 'C', 'D'] as const).map(k => {
+                                const optImg = q.optionImages?.[k];
+                                return (
+                                  <div
+                                    key={k}
+                                    className={`p-2.5 rounded-lg border text-xs flex items-start gap-2 ${
+                                      q.correctAnswer === k
+                                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 font-semibold'
+                                        : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300'
+                                    }`}
+                                  >
+                                    <span className="w-4 h-4 rounded bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                                      {k}
+                                    </span>
+                                    <div className="flex-1">
+                                      <RichContentRenderer content={q.options[k] || '—'} />
+                                      {optImg && (
+                                        <div className="mt-1">
+                                          <ImageLightbox
+                                            image={optImg}
+                                            alt={`Option ${k} diagram`}
+                                            className="max-h-16 object-contain rounded"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
 
-                            {q.explanation && (
+                            {(q.explanation || (q.explanationImages && q.explanationImages.length > 0)) && (
                               <div className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs space-y-1">
                                 <span className="font-bold text-zinc-700 dark:text-zinc-300">
                                   Explanation / Derivation:
                                 </span>
-                                <p className="text-zinc-600 dark:text-zinc-400">
-                                  {q.explanation}
-                                </p>
+                                <div className="text-zinc-600 dark:text-zinc-400 mt-1">
+                                  <RichContentRenderer
+                                    content={q.explanation || ''}
+                                    images={q.explanationImages}
+                                  />
+                                </div>
                               </div>
                             )}
 

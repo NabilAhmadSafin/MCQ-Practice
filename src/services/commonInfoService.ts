@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { CommonInformation, Question } from '../types';
+import type { CommonInformation, Question, QuestionImage, ContentBlock } from '../types';
 
 export async function getCommonInfoById(id: string): Promise<CommonInformation | undefined> {
   return await db.commonInformation.get(id);
@@ -12,6 +12,8 @@ export async function getAllCommonInfo(): Promise<CommonInformation[]> {
 export async function createCommonInfo(data: {
   title: string;
   content: string;
+  images?: QuestionImage[];
+  contentBlocks?: ContentBlock[];
   subjectId: string;
   chapterId: string;
 }): Promise<CommonInformation> {
@@ -19,6 +21,8 @@ export async function createCommonInfo(data: {
     id: 'ci_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
     title: data.title.trim() || 'অভিন্ন তথ্য',
     content: data.content.trim(),
+    images: data.images || [],
+    contentBlocks: data.contentBlocks,
     subjectId: data.subjectId,
     chapterId: data.chapterId,
     createdAt: Date.now(),

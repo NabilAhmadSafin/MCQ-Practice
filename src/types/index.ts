@@ -27,10 +27,33 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   COMMON_STEM: 'অভিন্ন তথ্যভিত্তিক'
 };
 
+export interface QuestionImage {
+  id: string;
+  url?: string;
+  storagePath: string; // e.g. "media/{id}"
+  altText?: string;
+  caption?: string;
+  order?: number;
+  width?: number;
+  height?: number;
+}
+
+export type ContentBlockType = 'text' | 'math' | 'chemical' | 'image';
+
+export interface ContentBlock {
+  id?: string;
+  type: ContentBlockType;
+  content?: string; // Text, LaTeX math, or chemical formula/reaction
+  displayMode?: boolean; // For math block
+  image?: QuestionImage; // For image block
+}
+
 export interface CommonInformation {
   id: string;
   title: string;
   content: string;
+  images?: QuestionImage[];
+  contentBlocks?: ContentBlock[];
   subjectId: string;
   chapterId: string;
   createdAt: number;
@@ -58,11 +81,17 @@ export interface Question {
   chapterId: string;
   questionType?: QuestionType;
   question: string;
+  images?: QuestionImage[]; // Primary question images
+  contentBlocks?: ContentBlock[]; // Structured rich blocks
   statements?: string[]; // For MULTIPLE_STATEMENT: [ "statement 1", "statement 2", ... ]
+  statementImages?: Record<number, QuestionImage[]>; // Optional images for statements
   commonInfoId?: string; // For COMMON_STEM: references CommonInformation.id
   options: Record<string, string>; // e.g. { A: "...", B: "...", C: "...", D: "..." }
+  optionImages?: Record<string, QuestionImage>; // Attached image per option A, B, C, D
   correctAnswer: CorrectAnswer;
   explanation?: string;
+  explanationImages?: QuestionImage[]; // Attached images for explanation
+  explanationBlocks?: ContentBlock[];
   sources: QuestionSource[];
   sourceTypes?: string[];
   guides?: string[];

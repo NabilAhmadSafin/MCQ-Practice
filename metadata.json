@@ -1,6 +1,6 @@
 {
   "name": "Fast MCQ Practice",
-  "description": "Fast, high-capacity MCQ management, indexed search, bulk import, and practice engine with detailed analytics.",
+  "description": "Fast, high-capacity MCQ management with support for diagrams, math equations, chemical reactions, indexed search, and analytics.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
