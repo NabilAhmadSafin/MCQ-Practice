@@ -18,6 +18,7 @@ import { validateParsedQuestion } from '../utils/validator';
 import { db } from '../db';
 import { getAllSubjects, getAllChapters, createSubject, createChapter } from '../services/subjectService';
 import { createCommonInfo } from '../services/commonInfoService';
+import { RichContentRenderer } from '../components/common/RichContentRenderer';
 import type { ValidationItem, Subject, Chapter, Question } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
@@ -27,34 +28,34 @@ interface ImportPageProps {
 
 const SAMPLE_CODE = `addQuestions({
   subject: "Physics",
-  chapter: "Motion",
+  chapter: "Motion & Dynamics",
 
   questions: [
-    // 1. Standard MCQ
+    // 1. Standard MCQ with Mathematical Equation ($...$)
     {
-      question: "Which of the following is a vector quantity?",
+      question: "একটি বস্তুর গতিশক্তি $E_k = \\\\frac{1}{2}mv^2$। যদি ভর $m = 4\\\\text{ kg}$ এবং বেগ $v = 10\\\\text{ m/s}$ হয়, তবে গতিশক্তি কত?",
       options: [
-        "Distance",
-        "Speed",
-        "Velocity",
-        "Mass"
+        "$100\\\\text{ J}$",
+        "$200\\\\text{ J}$",
+        "$400\\\\text{ J}$",
+        "$50\\\\text{ J}$"
       ],
-      answer: "C",
-      explanation: "Velocity has both magnitude and direction.",
+      answer: "B",
+      explanation: "$E_k = \\\\frac{1}{2} \\\\times 4 \\\\times (10)^2 = 2 \\\\times 100 = 200\\\\text{ J}$",
       sources: [
         { type: "Board", name: "Dhaka Board 2024" },
         { type: "Guide", name: "Panjaree", entryNo: "142" }
       ]
     },
 
-    // 2. বহুপদী সমাপ্তিসূচক MCQ (Multiple Statement)
+    // 2. Chemistry Reaction MCQ (\\\\ce{...})
     {
-      question: "বল এবং ত্বরণের ক্ষেত্রে—",
+      question: "নিচের বিক্রিয়াটিতে উৎপন্ন গ্যাসটি চুনের পানিকে ঘোলা করে:\\\\n$$\\\\ce{CaCO3(s) ->[\\\\Delta] CaO(s) + CO2(g)}$$\\\\nএখানে বিক্রিয়ক এবং উৎপাদের বৈশিষ্ট্য সম্পর্কে কোনটি সঠিক?",
       questionType: "MULTIPLE_STATEMENT",
       statements: [
-        "বল একটি ভেক্টর রাশি",
-        "বল = ভর × ত্বরণ",
-        "ত্বরণের মাত্রা LT⁻²"
+        "বিক্রিয়াটি একটি তাপহারী বিযোজন বিক্রিয়া",
+        "উৎপন্ন $\\\\ce{CO2}$ এসিডধর্মী গ্যাস",
+        "উৎপন্ন $\\\\ce{CaO}$ হলো কলিচুন"
       ],
       options: [
         "i ও ii",
@@ -62,26 +63,26 @@ const SAMPLE_CODE = `addQuestions({
         "i ও iii",
         "i, ii ও iii"
       ],
-      answer: "D",
-      explanation: "তিনটি তথ্যই সঠিক (নিউটনের ২য় সূত্রানুযায়ী F = ma)।",
+      answer: "A",
+      explanation: "i ও ii সঠিক। $\\\\ce{CaO}$ হলো পোড়াচুন (Quicklime); কলিচুন বা স্লেকড লাইম হলো $\\\\ce{Ca(OH)2}$।",
       sources: [
         { type: "Board", name: "Rajshahi Board 2024" }
       ]
     },
 
-    // 3. অভিন্ন তথ্যভিত্তিক MCQ (Common Stem)
+    // 3. অভিন্ন তথ্যভিত্তিক MCQ (Common Stem with Math/Equations)
     {
-      question: "10 সেকেন্ড পর গাড়িটির বেগ কত হবে?",
+      question: "10 সেকেন্ড পর গাড়িটির অতিক্রান্ত দূরত্ব কত হবে?",
       questionType: "COMMON_STEM",
-      stem: "একটি গাড়ি স্থির অবস্থান থেকে 2 m/s² সুষম ত্বরণে চলা শুরু করল। 10 সেকেন্ড পর চালক ব্রেক চেপে পরবর্তী 5 সেকেন্ডে গাড়িটি থামিয়ে দিলেন।",
+      stem: "একটি স্থির গাড়ি $u = 0$ থেকে $a = 2\\\\text{ m/s}^2$ সুষম ত্বরণে চলা শুরু করল। 10 সেকেন্ড পর চালক ব্রেক চেপে পরবর্তী 5 সেকেন্ডে গাড়িটি থামিয়ে দিলেন।",
       options: [
-        "10 m/s",
-        "20 m/s",
-        "30 m/s",
-        "40 m/s"
+        "$50\\\\text{ m}$",
+        "$100\\\\text{ m}$",
+        "$150\\\\text{ m}$",
+        "$200\\\\text{ m}$"
       ],
       answer: "B",
-      explanation: "v = u + at = 0 + (2 × 10) = 20 m/s",
+      explanation: "$s = ut + \\\\frac{1}{2}at^2 = 0 + \\\\frac{1}{2}(2)(10)^2 = 100\\\\text{ m}$",
       sources: [
         { type: "School", name: "Notre Dame College" },
         { type: "Guide", name: "Panjaree", entryNo: "88" }
@@ -293,6 +294,10 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
           options: q?.options || {},
           correctAnswer: q?.correctAnswer || 'A',
           explanation: q?.explanation,
+          images: q?.images,
+          contentBlocks: q?.contentBlocks,
+          optionImages: q?.optionImages,
+          explanationImages: q?.explanationImages,
           sources: validSources,
           sourceTypes: validSources.map((s: any) => s.type),
           guides: validSources.filter((s: any) => s.type?.toLowerCase() === 'guide').map((s: any) => s.name),
@@ -396,13 +401,37 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
       {/* CODE IMPORT TAB */}
       {activeTab === 'code' && (
         <div className="space-y-4">
-          <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 text-xs text-zinc-600 dark:text-zinc-400 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                Safe Structured Code Parser:
-              </span>{' '}
-              Paste an <code className="bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded font-mono">addQuestions(...)</code> block or pure JSON array. No eval or execution occurs.
+          <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 text-xs text-zinc-600 dark:text-zinc-400 space-y-2.5">
+            <div className="flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1">
+                <div>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    Safe Structured Code Parser:
+                  </span>{' '}
+                  Paste an <code className="bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded font-mono">addQuestions(...)</code> block or pure JSON array.
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Equation & Chemistry Cheatsheet */}
+            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 block mb-0.5">
+                  📐 Math Equations (LaTeX):
+                </span>
+                <span className="text-zinc-600 dark:text-zinc-400">
+                  Use <code className="font-mono text-zinc-800 dark:text-zinc-200 font-semibold">$...$</code> for inline or <code className="font-mono text-zinc-800 dark:text-zinc-200 font-semibold">$$...$$</code> for block display. Note: Escape backslashes in JS/JSON strings (e.g. <code className="font-mono text-zinc-700 dark:text-zinc-300">"$\\\\frac{1}{2}mv^2$"</code>).
+                </span>
+              </div>
+              <div className="p-2 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">
+                  🧪 Chemical Formulas & Reactions:
+                </span>
+                <span className="text-zinc-600 dark:text-zinc-400">
+                  Wrap in <code className="font-mono text-zinc-800 dark:text-zinc-200 font-semibold">\\ce&#123;...&#125;</code> (e.g. <code className="font-mono text-zinc-700 dark:text-zinc-300">"\\\\ce&#123;2H2 + O2 -&gt; 2H2O&#125;"</code> or <code className="font-mono text-zinc-700 dark:text-zinc-300">"\\\\ce&#123;CaCO3 -&gt; CaO + CO2 ^&#125;"</code>).
+                </span>
+              </div>
             </div>
           </div>
 
@@ -593,18 +622,21 @@ Source: Dhaka Board 2024`}
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
                     {item.isValid ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                     ) : (
-                      <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                     )}
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200 shrink-0">
                       Question #{item.index + 1}:
                     </span>
-                    <span className="text-zinc-600 dark:text-zinc-300 line-clamp-1">
-                      {item.questionText}
-                    </span>
+                    <div className="text-zinc-700 dark:text-zinc-300 flex-1 leading-snug">
+                      <RichContentRenderer
+                        content={item.questionText}
+                        images={item.parsedQuestion?.images}
+                      />
+                    </div>
                   </div>
 
                   {item.parsedQuestion && (
