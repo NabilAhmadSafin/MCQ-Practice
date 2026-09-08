@@ -7,11 +7,13 @@ import {
   Clock, 
   Award,
   BookOpen,
-  ArrowRight
+  ArrowRight,
+  Layers,
+  FileQuestion
 } from 'lucide-react';
 import { getOverallStatistics } from '../services/attemptService';
 import { getAllSubjects, getChaptersBySubject } from '../services/subjectService';
-import type { SubjectStatistics, ChapterStatistics } from '../types';
+import type { SubjectStatistics, ChapterStatistics, QuestionTypeStatistics } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
 interface StatisticsPageProps {
@@ -24,6 +26,7 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ onNavigate }) =>
     totalAttempts: number;
     overallAccuracy: number;
     subjectStats: SubjectStatistics[];
+    typeStats?: QuestionTypeStatistics[];
     recentSessions: any[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +106,82 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ onNavigate }) =>
               </div>
             </div>
           </div>
+
+          {/* Question Type Breakdown */}
+          {stats.typeStats && stats.typeStats.length > 0 && (
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                  Question Type Performance
+                </h2>
+                <p className="text-xs text-zinc-500">
+                  Accuracy and practice coverage across Standard, বহুপদী সমাপ্তিসূচক, and অভিন্ন তথ্যভিত্তিক MCQs.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {stats.typeStats.map(ts => {
+                  const attemptedPercent = ts.totalQuestions > 0 ? Math.round((ts.attemptedQuestions / ts.totalQuestions) * 100) : 0;
+                  const isMulti = ts.type === 'MULTIPLE_STATEMENT';
+                  const isStem = ts.type === 'COMMON_STEM';
+
+                  return (
+                    <div
+                      key={ts.type}
+                      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4 shadow-xs"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`p-2 rounded-lg ${
+                            isMulti
+                              ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+                              : isStem
+                              ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400'
+                              : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                          }`}>
+                            {isMulti ? <Layers className="w-4 h-4" /> : <FileQuestion className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                              {ts.label}
+                            </h3>
+                            <div className="text-xs text-zinc-500">
+                              {ts.totalQuestions} Questions • {ts.attemptedQuestions} Practiced
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                            {ts.accuracy}%
+                          </div>
+                          <div className="text-[10px] uppercase font-semibold text-zinc-400">
+                            Accuracy
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-zinc-500">
+                          <span>Practice Coverage</span>
+                          <span>{attemptedPercent}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              isMulti ? 'bg-blue-500' : isStem ? 'bg-purple-500' : 'bg-indigo-500'
+                            }`}
+                            style={{ width: `${attemptedPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Subject Breakdown Cards */}
           <div className="space-y-4">

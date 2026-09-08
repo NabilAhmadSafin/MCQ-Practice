@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { Question, QuestionFilter, QuestionSource, CorrectAnswer } from '../types';
+import type { Question, QuestionFilter, QuestionSource, CorrectAnswer, QuestionType } from '../types';
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -102,7 +102,10 @@ export function compareQuestionsByEntryNo(
 export async function createQuestion(data: {
   subjectId: string;
   chapterId: string;
+  questionType?: QuestionType;
   question: string;
+  statements?: string[];
+  commonInfoId?: string;
   options: Record<string, string>;
   correctAnswer: CorrectAnswer;
   explanation?: string;
@@ -117,7 +120,10 @@ export async function createQuestion(data: {
     id: 'q_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
     subjectId: data.subjectId,
     chapterId: data.chapterId,
+    questionType: data.questionType || 'STANDARD',
     question: data.question,
+    statements: data.statements,
+    commonInfoId: data.commonInfoId,
     options: data.options,
     correctAnswer: data.correctAnswer,
     explanation: data.explanation,
@@ -186,6 +192,7 @@ export async function toggleQuestionFlag(
 export async function getPracticeQuestions(params: {
   subjectId?: string;
   chapterId?: string;
+  questionTypes?: QuestionType[];
   sourceTypes?: string[];
   guides?: string[];
   set?: 'all' | 'unattempted' | 'wrong' | 'important' | 'veryImportant' | 'dontUnderstand';
@@ -203,6 +210,15 @@ export async function getPracticeQuestions(params: {
   }
 
   let questions = await collection.toArray();
+
+  // Question Type filtering
+  if (params.questionTypes && params.questionTypes.length > 0) {
+    const selectedTypes = new Set(params.questionTypes);
+    questions = questions.filter(q => {
+      const qType = q.questionType || 'STANDARD';
+      return selectedTypes.has(qType);
+    });
+  }
 
   // Multi-sourceType filtering
   if (params.sourceTypes && params.sourceTypes.length > 0) {
@@ -291,6 +307,14 @@ export async function getQuestionsPaginated(
     if (filter.subjectId && !filter.chapterId && q.subjectId !== filter.subjectId) return false;
     if (filter.chapterId && !filter.subjectId && q.chapterId !== filter.chapterId) return false;
 
+    // Question type filtering
+    const activeQuestionTypes = filter.questionTypes || (filter.questionType && filter.questionType !== 'ALL' ? [filter.questionType] : []);
+    if (activeQuestionTypes.length > 0) {
+      const selectedTypes = new Set(activeQuestionTypes);
+      const qType = q.questionType || 'STANDARD';
+      if (!selectedTypes.has(qType)) return false;
+    }
+
     // Multi-sourceType filtering (e.g. ['Board', 'School'])
     const activeSourceTypes = filter.sourceTypes || (filter.sourceType && filter.sourceType !== 'ALL' ? [filter.sourceType] : []);
     if (activeSourceTypes.length > 0) {
@@ -334,7 +358,8 @@ export async function getQuestionsPaginated(
       const inExplanation = q.explanation?.toLowerCase().includes(qLower) ?? false;
       const inSources = (q.sources || []).some(s => s.name?.toLowerCase().includes(qLower) || s.type?.toLowerCase().includes(qLower));
       const inOptions = Object.values(q.options || {}).some(opt => opt.toLowerCase().includes(qLower));
-      if (!inQuestion && !inExplanation && !inSources && !inOptions) return false;
+      const inStatements = (q.statements || []).some(stmt => stmt.toLowerCase().includes(qLower));
+      if (!inQuestion && !inExplanation && !inSources && !inOptions && !inStatements) return false;
     }
 
     return true;

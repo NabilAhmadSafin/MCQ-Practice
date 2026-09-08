@@ -1,5 +1,14 @@
 import { db } from '../db';
-import type { Attempt, PracticeSession, Question, QuestionStats, SubjectStatistics, ChapterStatistics } from '../types';
+import type { 
+  Attempt, 
+  PracticeSession, 
+  Question, 
+  QuestionStats, 
+  SubjectStatistics, 
+  ChapterStatistics,
+  QuestionTypeStatistics,
+  QuestionType
+} from '../types';
 
 export interface SystemStats {
   totalQuestions: number;
@@ -10,6 +19,7 @@ export interface SystemStats {
   weakQuestionsCount: number;
   subjectStats: SubjectStatistics[];
   chapterStats: ChapterStatistics[];
+  typeStats: QuestionTypeStatistics[];
   mostMissedQuestions: {
     question: Question;
     wrongCount: number;
@@ -323,6 +333,43 @@ export async function getSystemStatistics(): Promise<SystemStats> {
     };
   });
 
+  // Question Type stats
+  const typeAgg = new Map<QuestionType, { total: number; attempted: Set<string>; correct: number; totalAtt: number }>([
+    ['STANDARD', { total: 0, attempted: new Set(), correct: 0, totalAtt: 0 }],
+    ['MULTIPLE_STATEMENT', { total: 0, attempted: new Set(), correct: 0, totalAtt: 0 }],
+    ['COMMON_STEM', { total: 0, attempted: new Set(), correct: 0, totalAtt: 0 }]
+  ]);
+
+  for (const q of allQuestions) {
+    const qType: QuestionType = q.questionType || 'STANDARD';
+    const agg = typeAgg.get(qType) || typeAgg.get('STANDARD')!;
+    agg.total += 1;
+    const qStat = questionStatsMap.get(q.id);
+    if (qStat) {
+      agg.attempted.add(q.id);
+      agg.correct += qStat.correct;
+      agg.totalAtt += qStat.total;
+    }
+  }
+
+  const typeLabels: Record<QuestionType, string> = {
+    STANDARD: 'Standard MCQ',
+    MULTIPLE_STATEMENT: 'বহুপদী সমাপ্তিসূচক',
+    COMMON_STEM: 'অভিন্ন তথ্যভিত্তিক'
+  };
+
+  const typeStats: QuestionTypeStatistics[] = (['STANDARD', 'MULTIPLE_STATEMENT', 'COMMON_STEM'] as QuestionType[]).map(t => {
+    const agg = typeAgg.get(t)!;
+    const acc = agg.totalAtt > 0 ? Math.round((agg.correct / agg.totalAtt) * 100) : 0;
+    return {
+      type: t,
+      label: typeLabels[t],
+      totalQuestions: agg.total,
+      attemptedQuestions: agg.attempted.size,
+      accuracy: acc
+    };
+  });
+
   // Most missed questions
   const qMap = new Map(allQuestions.map(q => [q.id, q]));
   const mostMissedQuestions = Array.from(questionStatsMap.entries())
@@ -344,6 +391,7 @@ export async function getSystemStatistics(): Promise<SystemStats> {
     weakQuestionsCount: weakCount,
     subjectStats,
     chapterStats,
+    typeStats,
     mostMissedQuestions
   };
 }
@@ -353,6 +401,7 @@ export async function getOverallStatistics(): Promise<{
   totalAttempts: number;
   overallAccuracy: number;
   subjectStats: SubjectStatistics[];
+  typeStats: QuestionTypeStatistics[];
   recentSessions: PracticeSession[];
 }> {
   const sys = await getSystemStatistics();
@@ -362,6 +411,7 @@ export async function getOverallStatistics(): Promise<{
     totalAttempts: sys.totalAttempts,
     overallAccuracy: sys.overallAccuracy,
     subjectStats: sys.subjectStats,
+    typeStats: sys.typeStats,
     recentSessions: recent
   };
 }

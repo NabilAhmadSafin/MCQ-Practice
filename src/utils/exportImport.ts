@@ -5,15 +5,17 @@ export async function exportAllDataAsJson(): Promise<string> {
   const subjects = await db.subjects.toArray();
   const chapters = await db.chapters.toArray();
   const questions = await db.questions.toArray();
+  const commonInformation = await db.commonInformation.toArray();
   const attempts = await db.attempts.toArray();
   const sessions = await db.sessions.toArray();
 
   const exportPayload = {
     app: 'Fast MCQ Practice',
-    version: '2.0',
+    version: '2.1',
     exportedAt: new Date().toISOString(),
     subjects,
     chapters,
+    commonInformation,
     questions,
     attempts,
     sessions
@@ -37,9 +39,12 @@ export async function exportQuestionsAsCsv(): Promise<string> {
 
   const headers = [
     'ID',
+    'Question Type',
     'Subject',
     'Chapter',
     'Question',
+    'Statements',
+    'Common Info ID',
     'Option A',
     'Option B',
     'Option C',
@@ -54,14 +59,19 @@ export async function exportQuestionsAsCsv(): Promise<string> {
 
   const rows = questions.map(q => {
     const sourcesStr = (q.sources || [])
-      .map(s => `${s.type}: ${s.name}`)
+      .map(s => `${s.type}: ${s.name}${s.entryNo ? ` [Entry: ${s.entryNo}]` : ''}`)
       .join(' | ');
+
+    const statementsStr = (q.statements || []).join(' ;; ');
 
     return [
       escapeCsv(q.id),
+      escapeCsv(q.questionType || 'STANDARD'),
       escapeCsv(subjMap.get(q.subjectId) || ''),
       escapeCsv(chapMap.get(q.chapterId) || ''),
       escapeCsv(q.question),
+      escapeCsv(statementsStr),
+      escapeCsv(q.commonInfoId || ''),
       escapeCsv(q.options['A'] || ''),
       escapeCsv(q.options['B'] || ''),
       escapeCsv(q.options['C'] || ''),
@@ -135,12 +145,13 @@ export async function importDataFromJson(jsonString: string): Promise<{
   const subjects: Subject[] = parsed.subjects || [];
   const chapters: Chapter[] = parsed.chapters || [];
   const questions: Question[] = parsed.questions || [];
+  const commonInformation = parsed.commonInformation || [];
 
   if (!Array.isArray(questions)) {
     throw new Error('JSON backup must contain a "questions" array');
   }
 
-  await db.transaction('rw', [db.subjects, db.chapters, db.questions], async () => {
+  await db.transaction('rw', [db.subjects, db.chapters, db.questions, db.commonInformation], async () => {
     if (subjects.length > 0) {
       for (const s of subjects) {
         await db.subjects.put(s);
@@ -151,6 +162,11 @@ export async function importDataFromJson(jsonString: string): Promise<{
         await db.chapters.put(c);
       }
     }
+    if (commonInformation.length > 0) {
+      for (const ci of commonInformation) {
+        await db.commonInformation.put(ci);
+      }
+    }
     if (questions.length > 0) {
       for (const q of questions) {
         // Ensure sources exist and remove legacy tags/difficulty
@@ -159,6 +175,10 @@ export async function importDataFromJson(jsonString: string): Promise<{
           if ((q as any).sourceType || (q as any).sourceName) {
             q.sources.push({ type: (q as any).sourceType || 'Board', name: (q as any).sourceName || '' });
           }
+        }
+        // Ensure default questionType
+        if (!q.questionType) {
+          q.questionType = 'STANDARD';
         }
         delete (q as any).difficulty;
         delete (q as any).tags;
@@ -175,10 +195,11 @@ export async function importDataFromJson(jsonString: string): Promise<{
 }
 
 export async function resetEntireDatabase(): Promise<void> {
-  await db.transaction('rw', [db.subjects, db.chapters, db.questions, db.attempts, db.sessions], async () => {
+  await db.transaction('rw', [db.subjects, db.chapters, db.questions, db.commonInformation, db.attempts, db.sessions], async () => {
     await db.subjects.clear();
     await db.chapters.clear();
     await db.questions.clear();
+    await db.commonInformation.clear();
     await db.attempts.clear();
     await db.sessions.clear();
   });

@@ -17,7 +17,10 @@ import {
   Check,
   X,
   Shuffle,
-  AlertCircle
+  AlertCircle,
+  Layers,
+  ListOrdered,
+  FileText
 } from 'lucide-react';
 import {
   getPracticeQuestions,
@@ -33,15 +36,19 @@ import {
   saveAttempt,
   savePracticeSession
 } from '../services/attemptService';
+import { getCommonInfoById } from '../services/commonInfoService';
+import { toRomanNumeral } from '../utils/romanNumerals';
 import { FlagIcons } from '../components/common/FlagIcons';
 import type {
   Question,
   Subject,
   Chapter,
   PracticeSession,
-  Attempt
+  Attempt,
+  QuestionType,
+  CommonInformation
 } from '../types';
-import { GUIDE_OPTIONS } from '../types';
+import { GUIDE_OPTIONS, QUESTION_TYPE_LABELS } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
 interface PracticePageProps {
@@ -73,6 +80,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   // Configuration settings
   const [configSubjectId, setConfigSubjectId] = useState(initialSubjectId || '');
   const [configChapterId, setConfigChapterId] = useState(initialChapterId || '');
+  const [configQuestionTypes, setConfigQuestionTypes] = useState<QuestionType[]>([]);
   const [configSourceTypes, setConfigSourceTypes] = useState<string[]>([]);
   const [configGuides, setConfigGuides] = useState<string[]>([]);
   const [configSet, setConfigSet] = useState<
@@ -93,6 +101,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
 
   // Active session state
   const [sessionQuestions, setSessionQuestions] = useState<Question[]>([]);
+  const [commonInfoMap, setCommonInfoMap] = useState<Record<string, CommonInformation>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, 'A' | 'B' | 'C' | 'D'>>({});
   const [questionTimes, setQuestionTimes] = useState<Record<string, number>>({});
@@ -178,6 +187,12 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     });
   };
 
+  const toggleQuestionType = (type: QuestionType) => {
+    setConfigQuestionTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  };
+
   // Start practice session
   const handleStartPractice = async () => {
     setSessionError(null);
@@ -185,6 +200,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
       const qs = await getPracticeQuestions({
         subjectId: configSubjectId || undefined,
         chapterId: configChapterId || undefined,
+        questionTypes: configQuestionTypes.length > 0 ? configQuestionTypes : undefined,
         sourceTypes: configSourceTypes.length > 0 ? configSourceTypes : undefined,
         guides: configGuides.length > 0 ? configGuides : undefined,
         set: configSet,
@@ -203,7 +219,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     }
   };
 
-  const startSessionWithQuestions = (
+  const startSessionWithQuestions = async (
     questionsList: Question[],
     type: 'instant' | 'exam',
     timeLimitMins: number
@@ -218,7 +234,36 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     setRemainingSeconds(timeLimitMins > 0 ? timeLimitMins * 60 : 0);
     setPhase('active');
     setShowGridDrawer(false);
+
+    // Preload common information records for any common stem questions in this session
+    const stemInfoIds = Array.from(
+      new Set(questionsList.map(q => q.commonInfoId).filter(Boolean))
+    ) as string[];
+    if (stemInfoIds.length > 0) {
+      try {
+        const infos = await Promise.all(stemInfoIds.map(id => getCommonInfoById(id)));
+        const map: Record<string, CommonInformation> = {};
+        infos.forEach(info => {
+          if (info) map[info.id] = info;
+        });
+        setCommonInfoMap(map);
+      } catch (err) {
+        console.error('Failed to preload common info:', err);
+      }
+    }
   };
+
+  // Ensure current question's common info is loaded if not already cached
+  useEffect(() => {
+    const q = sessionQuestions[currentIndex];
+    if (q?.commonInfoId && !commonInfoMap[q.commonInfoId]) {
+      getCommonInfoById(q.commonInfoId).then(info => {
+        if (info) {
+          setCommonInfoMap(prev => ({ ...prev, [info.id]: info }));
+        }
+      });
+    }
+  }, [currentIndex, sessionQuestions, commonInfoMap]);
 
   // Timer effect
   useEffect(() => {
@@ -552,6 +597,47 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               </div>
             </div>
 
+            {/* Question Type Filter (Multi-select) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                  Question Type Filter / প্রশ্নের ধরন
+                </label>
+                {configQuestionTypes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfigQuestionTypes([])}
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    Clear type filter
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  { type: 'STANDARD' as QuestionType, label: 'Standard MCQ' },
+                  { type: 'MULTIPLE_STATEMENT' as QuestionType, label: 'বহুপদী সমাপ্তিসূচক' },
+                  { type: 'COMMON_STEM' as QuestionType, label: 'অভিন্ন তথ্যভিত্তিক' }
+                ].map(t => {
+                  const isChecked = configQuestionTypes.includes(t.type);
+                  return (
+                    <button
+                      key={t.type}
+                      type="button"
+                      onClick={() => toggleQuestionType(t.type)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                        isChecked
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Question Target Set */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-2">
@@ -796,6 +882,16 @@ export const PracticePage: React.FC<PracticePageProps> = ({
             {/* Meta bar: Subject, chapter, sources, flags */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                  currentQ.questionType === 'MULTIPLE_STATEMENT'
+                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                    : currentQ.questionType === 'COMMON_STEM'
+                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+                }`}>
+                  {QUESTION_TYPE_LABELS[currentQ.questionType || 'STANDARD']}
+                </span>
+                <span className="text-zinc-300 dark:text-zinc-700">•</span>
                 <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                   {allSubjectsMap.get(currentQ.subjectId)?.name || 'Subject'}
                 </span>
@@ -862,10 +958,73 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               </div>
             </div>
 
+            {/* COMMON STEM PASSAGE / STIMULUS (Shared Information) */}
+            {currentQ.commonInfoId && commonInfoMap[currentQ.commonInfoId] && (
+              <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider">
+                    <Layers className="w-4 h-4" />
+                    <span>{commonInfoMap[currentQ.commonInfoId].title || 'উদ্দীপক / অভিন্ন তথ্য'}</span>
+                  </div>
+
+                  {/* Navigation between questions sharing this common stem in active session */}
+                  {(() => {
+                    const groupQs = sessionQuestions.filter(q => q.commonInfoId === currentQ.commonInfoId);
+                    if (groupQs.length <= 1) return null;
+                    return (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-zinc-500 text-[11px]">গ্রুপের প্রশ্ন:</span>
+                        {groupQs.map((gq, gIdx) => {
+                          const isThis = gq.id === currentQ.id;
+                          const targetIdx = sessionQuestions.findIndex(q => q.id === gq.id);
+                          const isAnswered = Boolean(userAnswers[gq.id]);
+                          return (
+                            <button
+                              key={gq.id}
+                              type="button"
+                              onClick={() => targetIdx >= 0 && handleJumpTo(targetIdx)}
+                              className={`px-2 py-0.5 rounded text-xs font-bold font-mono transition-colors ${
+                                isThis
+                                  ? 'bg-indigo-600 text-white'
+                                  : isAnswered
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                  : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100'
+                              }`}
+                              title={`Jump to group question #${gIdx + 1}`}
+                            >
+                              {gIdx + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="text-sm sm:text-base text-zinc-800 dark:text-zinc-200 leading-relaxed font-sans whitespace-pre-wrap">
+                  {commonInfoMap[currentQ.commonInfoId].content}
+                </div>
+              </div>
+            )}
+
             {/* Prompt */}
             <div className="text-base sm:text-lg font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
               {currentQ.question}
             </div>
+
+            {/* MULTIPLE STATEMENT LIST (i, ii, iii...) */}
+            {currentQ.statements && currentQ.statements.length > 0 && (
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 p-4 space-y-2">
+                {currentQ.statements.map((stmt, sIdx) => (
+                  <div key={sIdx} className="flex items-start gap-2.5 text-sm sm:text-base text-zinc-800 dark:text-zinc-200">
+                    <span className="font-mono font-bold text-xs bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded shrink-0 mt-0.5">
+                      {toRomanNumeral(sIdx + 1)}.
+                    </span>
+                    <span className="flex-1 leading-relaxed">{stmt}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Options List */}
             <div className="space-y-3">
@@ -1073,7 +1232,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({
                           <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
                             {q.question}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {q.commonInfoId && commonInfoMap[q.commonInfoId] && (
+                            <div className="mt-1.5 text-[11px] p-2 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 text-indigo-900 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-900/40">
+                              <span className="font-bold">উদ্দীপক: </span>
+                              {commonInfoMap[q.commonInfoId].content}
+                            </div>
+                          )}
+                          {q.statements && q.statements.length > 0 && (
+                            <div className="mt-1.5 space-y-0.5 text-xs pl-3 border-l-2 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+                              {q.statements.map((st, sIdx) => (
+                                <div key={sIdx}>
+                                  <span className="font-mono font-bold text-[10px] text-zinc-500 mr-1.5">
+                                    {toRomanNumeral(sIdx + 1)}.
+                                  </span>
+                                  <span>{st}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 font-bold text-zinc-700 dark:text-zinc-300">
+                              {QUESTION_TYPE_LABELS[q.questionType || 'STANDARD']}
+                            </span>
                             {qSources.map((s, sIdx) => (
                               <span
                                 key={sIdx}

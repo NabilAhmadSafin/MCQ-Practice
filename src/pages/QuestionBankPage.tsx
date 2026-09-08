@@ -30,10 +30,12 @@ import {
 } from '../services/questionService';
 import { getAllSubjects, getChaptersBySubject, getAllChapters } from '../services/subjectService';
 import { getQuestionStatsMap } from '../services/attemptService';
+import { getCommonInfoById } from '../services/commonInfoService';
+import { toRomanNumeral } from '../utils/romanNumerals';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FlagIcons } from '../components/common/FlagIcons';
-import type { Question, QuestionFilter, Subject, Chapter, QuestionStats } from '../types';
-import { GUIDE_OPTIONS } from '../types';
+import type { Question, QuestionFilter, Subject, Chapter, QuestionStats, QuestionType, CommonInformation } from '../types';
+import { GUIDE_OPTIONS, QUESTION_TYPE_LABELS } from '../types';
 
 interface QuestionBankPageProps {
   onNavigate: (page: string, params?: any) => void;
@@ -74,6 +76,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
   const [filter, setFilter] = useState<QuestionFilter>({
     subjectId: initialFilter?.subjectId || '',
     chapterId: initialFilter?.chapterId || '',
+    questionTypes: initialFilter?.questionTypes || (initialFilter?.questionType && initialFilter.questionType !== 'ALL' ? [initialFilter.questionType] : []),
     sourceTypes: initialFilter?.sourceTypes || [],
     guides: initialFilter?.guides || [],
     sourceName: initialFilter?.sourceName || '',
@@ -85,6 +88,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
 
   const [searchInput, setSearchInput] = useState(filter.searchQuery || '');
   const [showFilters, setShowFilters] = useState(false);
+  const [commonInfoMap, setCommonInfoMap] = useState<Record<string, CommonInformation>>({});
 
   // Selection & Bulk
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -145,6 +149,20 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
       setTotalQuestions(res.total);
       setTotalPages(res.totalPages);
       setStatsMap(stats);
+
+      // Preload common information records for any questions in this page
+      const infoIds = Array.from(
+        new Set(res.items.map(q => q.commonInfoId).filter(Boolean))
+      ) as string[];
+      if (infoIds.length > 0) {
+        Promise.all(infoIds.map(id => getCommonInfoById(id))).then(infos => {
+          const map: Record<string, CommonInformation> = {};
+          infos.forEach(info => {
+            if (info) map[info.id] = info;
+          });
+          setCommonInfoMap(prev => ({ ...prev, ...map }));
+        });
+      }
     } catch (err) {
       console.error('Failed to load questions:', err);
     } finally {
@@ -157,6 +175,17 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
   }, [filter, currentPage]);
 
   // Handle Multi-Select helpers
+  const toggleQuestionTypeFilter = (type: QuestionType) => {
+    setFilter(prev => {
+      const current = prev.questionTypes || [];
+      const next = current.includes(type)
+        ? current.filter(t => t !== type)
+        : [...current, type];
+      return { ...prev, questionTypes: next };
+    });
+    setCurrentPage(1);
+  };
+
   const toggleSourceTypeFilter = (type: string) => {
     setFilter(prev => {
       const current = prev.sourceTypes || [];
@@ -215,6 +244,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
     setFilter({
       subjectId: '',
       chapterId: '',
+      questionTypes: [],
       sourceTypes: [],
       guides: [],
       sourceName: '',
@@ -231,6 +261,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
     return Boolean(
       filter.subjectId ||
         filter.chapterId ||
+        (filter.questionTypes && filter.questionTypes.length > 0) ||
         (filter.sourceTypes && filter.sourceTypes.length > 0) ||
         (filter.guides && filter.guides.length > 0) ||
         filter.sourceName ||
@@ -514,6 +545,47 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                     <option key={s} value={s} />
                   ))}
                 </datalist>
+              </div>
+            </div>
+
+            {/* Question Type Filter Section (Multiple Choice) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  Question Type / প্রশ্নের ধরন (Choose Multiple)
+                </label>
+                {(filter.questionTypes && filter.questionTypes.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setFilter(prev => ({ ...prev, questionTypes: [] }))}
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    Clear question types
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  { type: 'STANDARD' as QuestionType, label: 'Standard MCQ' },
+                  { type: 'MULTIPLE_STATEMENT' as QuestionType, label: 'বহুপদী সমাপ্তিসূচক' },
+                  { type: 'COMMON_STEM' as QuestionType, label: 'অভিন্ন তথ্যভিত্তিক' }
+                ].map(t => {
+                  const isChecked = (filter.questionTypes || []).includes(t.type);
+                  return (
+                    <button
+                      key={t.type}
+                      type="button"
+                      onClick={() => toggleQuestionTypeFilter(t.type)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition ${
+                        isChecked
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                      }`}
+                    >
+                      <span>{t.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -976,6 +1048,25 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                             onClick={() => setExpandedId(isExpanded ? null : q.id)}
                             className="cursor-pointer group"
                           >
+                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                              <span
+                                className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                  q.questionType === 'MULTIPLE_STATEMENT'
+                                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                    : q.questionType === 'COMMON_STEM'
+                                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+                                }`}
+                              >
+                                {QUESTION_TYPE_LABELS[q.questionType || 'STANDARD']}
+                              </span>
+                              {q.commonInfoId && commonInfoMap[q.commonInfoId]?.title && (
+                                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium truncate max-w-xs">
+                                  [{commonInfoMap[q.commonInfoId].title}]
+                                </span>
+                              )}
+                            </div>
+
                             <div className="font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2 group-hover:text-indigo-600 transition-colors">
                               {q.question}
                             </div>
@@ -1130,6 +1221,37 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                       {isExpanded && (
                         <tr className="bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-800">
                           <td colSpan={7} className="p-4 space-y-3">
+                            {/* Common Information Stimulus if COMMON_STEM */}
+                            {q.commonInfoId && commonInfoMap[q.commonInfoId] && (
+                              <div className="p-3.5 rounded-lg bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs space-y-1.5">
+                                <div className="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                                  <span>উদ্দীপক / অনুচ্ছেদ: {commonInfoMap[q.commonInfoId].title || 'অভিন্ন তথ্যভিত্তিক'}</span>
+                                </div>
+                                <p className="text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">
+                                  {commonInfoMap[q.commonInfoId].content}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Statements if MULTIPLE_STATEMENT */}
+                            {q.statements && q.statements.length > 0 && (
+                              <div className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs space-y-1.5">
+                                <div className="font-bold text-zinc-700 dark:text-zinc-300">
+                                  বক্তব্যসমূহ (Statements):
+                                </div>
+                                <div className="space-y-1 pl-1">
+                                  {q.statements.map((stmt, sIdx) => (
+                                    <div key={sIdx} className="flex items-start gap-2">
+                                      <span className="font-mono font-bold text-[10px] text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                                        {toRomanNumeral(sIdx + 1)}.
+                                      </span>
+                                      <span className="text-zinc-800 dark:text-zinc-200">{stmt}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                               Options & Explanation
                             </div>

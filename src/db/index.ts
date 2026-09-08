@@ -1,10 +1,11 @@
 import Dexie, { type Table } from 'dexie';
-import type { Subject, Chapter, Question, Attempt, PracticeSession } from '../types';
+import type { Subject, Chapter, Question, Attempt, PracticeSession, CommonInformation } from '../types';
 
 export class MCQDatabase extends Dexie {
   subjects!: Table<Subject, string>;
   chapters!: Table<Chapter, string>;
   questions!: Table<Question, string>;
+  commonInformation!: Table<CommonInformation, string>;
   attempts!: Table<Attempt, string>;
   sessions!: Table<PracticeSession, string>;
 
@@ -38,6 +39,21 @@ export class MCQDatabase extends Dexie {
           .map((s: any) => s.name);
         delete q.difficulty;
         delete q.tags;
+      });
+    });
+
+    this.version(3).stores({
+      subjects: 'id, name, order, createdAt',
+      chapters: 'id, subjectId, name, order, [subjectId+order], createdAt',
+      questions: 'id, subjectId, chapterId, [subjectId+chapterId], questionType, commonInfoId, important, veryImportant, dontUnderstand, *sourceTypes, *guides, createdAt, updatedAt',
+      commonInformation: 'id, subjectId, chapterId, createdAt, updatedAt',
+      attempts: 'id, questionId, sessionId, isCorrect, attemptedAt, [questionId+isCorrect]',
+      sessions: 'id, startedAt, completedAt, mode, subjectId, chapterId'
+    }).upgrade(tx => {
+      return tx.table('questions').toCollection().modify((q: any) => {
+        if (!q.questionType) {
+          q.questionType = 'STANDARD';
+        }
       });
     });
   }

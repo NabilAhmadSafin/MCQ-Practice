@@ -18,6 +18,24 @@ export type GuideOption = typeof GUIDE_OPTIONS[number];
 
 export type CorrectAnswer = 'A' | 'B' | 'C' | 'D' | string;
 
+export type QuestionType = 'STANDARD' | 'MULTIPLE_STATEMENT' | 'COMMON_STEM';
+
+export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  STANDARD: 'Standard MCQ',
+  MULTIPLE_STATEMENT: 'বহুপদী সমাপ্তিসূচক',
+  COMMON_STEM: 'অভিন্ন তথ্যভিত্তিক'
+};
+
+export interface CommonInformation {
+  id: string;
+  title: string;
+  content: string;
+  subjectId: string;
+  chapterId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Subject {
   id: string;
   name: string;
@@ -37,7 +55,10 @@ export interface Question {
   id: string;
   subjectId: string;
   chapterId: string;
+  questionType?: QuestionType;
   question: string;
+  statements?: string[]; // For MULTIPLE_STATEMENT: [ "statement 1", "statement 2", ... ]
+  commonInfoId?: string; // For COMMON_STEM: references CommonInformation.id
   options: Record<string, string>; // e.g. { A: "...", B: "...", C: "...", D: "..." }
   correctAnswer: CorrectAnswer;
   explanation?: string;
@@ -86,6 +107,8 @@ export interface PracticeSession {
 export interface QuestionFilter {
   subjectId?: string;
   chapterId?: string;
+  questionType?: QuestionType | 'ALL';
+  questionTypes?: QuestionType[];
   sourceTypes?: string[]; // multiple selection: ['Board', 'School']
   sourceType?: string;
   guides?: string[]; // multiple selection: ['Panjaree', 'Lecture', 'Royal', 'Chorcha', 'eProshnobank']
@@ -109,6 +132,8 @@ export interface ValidationItem {
   parsedQuestion?: Partial<Question> & {
     subjectName?: string;
     chapterName?: string;
+    commonInfoTitle?: string;
+    commonInfoContent?: string;
   };
 }
 
@@ -133,6 +158,14 @@ export interface ChapterStatistics {
   chapterId: string;
   chapterName: string;
   subjectName: string;
+  totalQuestions: number;
+  attemptedQuestions: number;
+  accuracy: number;
+}
+
+export interface QuestionTypeStatistics {
+  type: QuestionType;
+  label: string;
   totalQuestions: number;
   attemptedQuestions: number;
   accuracy: number;

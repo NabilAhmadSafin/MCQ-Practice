@@ -1,4 +1,4 @@
-import type { ValidationItem, Question, QuestionSource } from '../types';
+import type { ValidationItem, Question, QuestionSource, QuestionType } from '../types';
 
 export function validateParsedQuestion(
   raw: any,
@@ -18,6 +18,57 @@ export function validateParsedQuestion(
   // Check duplicate question text
   if (questionText && existingQuestionTexts.has(questionText.toLowerCase())) {
     warnings.push('A question with very similar or identical text already exists');
+  }
+
+  // Question Type detection & normalization
+  let questionType: QuestionType = 'STANDARD';
+  const rawType = String(raw?.questionType || raw?.type || '').trim().toUpperCase();
+  if (
+    rawType === 'MULTIPLE_STATEMENT' ||
+    rawType.includes('MULTIPLE') ||
+    rawType.includes('STATEMENT') ||
+    rawType === 'বহুপদী সমাপ্তিসূচক'
+  ) {
+    questionType = 'MULTIPLE_STATEMENT';
+  } else if (
+    rawType === 'COMMON_STEM' ||
+    rawType.includes('COMMON') ||
+    rawType.includes('STEM') ||
+    rawType === 'অভিন্ন তথ্যভিত্তিক'
+  ) {
+    questionType = 'COMMON_STEM';
+  } else if (Array.isArray(raw?.statements) && raw.statements.length > 0) {
+    questionType = 'MULTIPLE_STATEMENT';
+  } else if (raw?.commonInfoId || raw?.commonInfoContent || raw?.stem || raw?.commonInfo) {
+    questionType = 'COMMON_STEM';
+  }
+
+  // Statements validation (for MULTIPLE_STATEMENT)
+  let statements: string[] | undefined = undefined;
+  if (Array.isArray(raw?.statements)) {
+    statements = raw.statements
+      .map((s: any) => String(s || '').trim())
+      .filter((s: string) => s.length > 0);
+  }
+  if (questionType === 'MULTIPLE_STATEMENT') {
+    if (!statements || statements.length < 2) {
+      warnings.push('MULTIPLE_STATEMENT (বহুপদী সমাপ্তিসূচক) usually has 2 or more statements (i, ii, iii)');
+    }
+  }
+
+  // Common Stem / Information (for COMMON_STEM)
+  const commonInfoId = typeof raw?.commonInfoId === 'string' && raw.commonInfoId.trim()
+    ? raw.commonInfoId.trim()
+    : undefined;
+  const commonInfoTitle = typeof raw?.commonInfoTitle === 'string' && raw.commonInfoTitle.trim()
+    ? raw.commonInfoTitle.trim()
+    : (raw?.commonInfo?.title || raw?.stemTitle || undefined);
+  const commonInfoContent = typeof raw?.commonInfoContent === 'string' && raw.commonInfoContent.trim()
+    ? raw.commonInfoContent.trim()
+    : (typeof raw?.stem === 'string' ? raw.stem.trim() : (raw?.commonInfo?.content || undefined));
+
+  if (questionType === 'COMMON_STEM' && !commonInfoId && !commonInfoContent) {
+    warnings.push('COMMON_STEM (অভিন্ন তথ্যভিত্তিক) question is missing a passage or commonInfoId');
   }
 
   // Options validation
@@ -145,6 +196,11 @@ export function validateParsedQuestion(
     warnings,
     parsedQuestion: {
       question: questionText,
+      questionType,
+      statements: statements && statements.length > 0 ? statements : undefined,
+      commonInfoId,
+      commonInfoTitle,
+      commonInfoContent,
       options: optionsObj,
       correctAnswer: normalizedAnswer,
       explanation,

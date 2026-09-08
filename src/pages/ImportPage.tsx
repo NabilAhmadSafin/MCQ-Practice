@@ -17,6 +17,7 @@ import { parseDocxFile, parseTextToQuestions } from '../utils/docxParser';
 import { validateParsedQuestion } from '../utils/validator';
 import { db } from '../db';
 import { getAllSubjects, getAllChapters, createSubject, createChapter } from '../services/subjectService';
+import { createCommonInfo } from '../services/commonInfoService';
 import type { ValidationItem, Subject, Chapter, Question } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
@@ -29,6 +30,7 @@ const SAMPLE_CODE = `addQuestions({
   chapter: "Motion",
 
   questions: [
+    // 1. Standard MCQ
     {
       question: "Which of the following is a vector quantity?",
       options: [
@@ -44,20 +46,45 @@ const SAMPLE_CODE = `addQuestions({
         { type: "Guide", name: "Panjaree", entryNo: "142" }
       ]
     },
+
+    // 2. বহুপদী সমাপ্তিসূচক MCQ (Multiple Statement)
     {
-      question: "What is the SI unit of acceleration?",
-      options: [
-        "m",
-        "m/s",
-        "m/s²",
-        "N"
+      question: "বল এবং ত্বরণের ক্ষেত্রে—",
+      questionType: "MULTIPLE_STATEMENT",
+      statements: [
+        "বল একটি ভেক্টর রাশি",
+        "বল = ভর × ত্বরণ",
+        "ত্বরণের মাত্রা LT⁻²"
       ],
-      answer: "C",
-      explanation: "Acceleration is the rate of change of velocity.",
+      options: [
+        "i ও ii",
+        "ii ও iii",
+        "i ও iii",
+        "i, ii ও iii"
+      ],
+      answer: "D",
+      explanation: "তিনটি তথ্যই সঠিক (নিউটনের ২য় সূত্রানুযায়ী F = ma)।",
       sources: [
-        { type: "Board", name: "Chittagong Board 2023" },
+        { type: "Board", name: "Rajshahi Board 2024" }
+      ]
+    },
+
+    // 3. অভিন্ন তথ্যভিত্তিক MCQ (Common Stem)
+    {
+      question: "10 সেকেন্ড পর গাড়িটির বেগ কত হবে?",
+      questionType: "COMMON_STEM",
+      stem: "একটি গাড়ি স্থির অবস্থান থেকে 2 m/s² সুষম ত্বরণে চলা শুরু করল। 10 সেকেন্ড পর চালক ব্রেক চেপে পরবর্তী 5 সেকেন্ডে গাড়িটি থামিয়ে দিলেন।",
+      options: [
+        "10 m/s",
+        "20 m/s",
+        "30 m/s",
+        "40 m/s"
+      ],
+      answer: "B",
+      explanation: "v = u + at = 0 + (2 × 10) = 20 m/s",
+      sources: [
         { type: "School", name: "Notre Dame College" },
-        { type: "Guide", name: "Lecture", entryNo: "88" }
+        { type: "Guide", name: "Panjaree", entryNo: "88" }
       ]
     }
   ]
@@ -192,6 +219,7 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
       );
 
       const dbQuestions: Question[] = [];
+      const stemContentToId = new Map<string, string>();
 
       for (const q of questionsToInsert) {
         const sName = (q?.subjectName || 'General').trim();
@@ -214,6 +242,32 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
           chapKeyMap.set(chapKey, cId);
         }
 
+        // Resolve commonInformation if COMMON_STEM or if stem content is present
+        let resolvedCommonInfoId = q?.commonInfoId;
+        const stemContent = q?.commonInfoContent?.trim();
+        if (!resolvedCommonInfoId && stemContent) {
+          if (stemContentToId.has(stemContent)) {
+            resolvedCommonInfoId = stemContentToId.get(stemContent);
+          } else {
+            // Check if identical passage already exists in DB
+            const existing = await db.commonInformation
+              .filter(ci => ci.content.trim() === stemContent)
+              .first();
+            if (existing) {
+              resolvedCommonInfoId = existing.id;
+            } else {
+              const newInfo = await createCommonInfo({
+                title: q?.commonInfoTitle || 'অভিন্ন তথ্যভিত্তিক উদ্দীপক',
+                content: stemContent,
+                subjectId: sId,
+                chapterId: cId
+              });
+              resolvedCommonInfoId = newInfo.id;
+            }
+            stemContentToId.set(stemContent, resolvedCommonInfoId!);
+          }
+        }
+
         const validSources = q?.sources && q.sources.length > 0
           ? q.sources.map((s: any) => ({
               type: s.type || 'Board',
@@ -222,11 +276,20 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
             }))
           : [{ type: q?.sourceType || 'Board', name: q?.sourceName || 'General' }];
 
+        const resolvedType = q?.questionType || (
+          resolvedCommonInfoId
+            ? 'COMMON_STEM'
+            : (q?.statements && q.statements.length > 0 ? 'MULTIPLE_STATEMENT' : 'STANDARD')
+        );
+
         dbQuestions.push({
           id: 'q_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
           subjectId: sId,
           chapterId: cId,
           question: q?.question || '',
+          questionType: resolvedType,
+          statements: q?.statements && q.statements.length > 0 ? q.statements : undefined,
+          commonInfoId: resolvedCommonInfoId,
           options: q?.options || {},
           correctAnswer: q?.correctAnswer || 'A',
           explanation: q?.explanation,
@@ -545,11 +608,38 @@ Source: Dhaka Board 2024`}
                   </div>
 
                   {item.parsedQuestion && (
-                    <span className="font-bold px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
-                      Ans: {item.parsedQuestion.correctAnswer}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                        item.parsedQuestion.questionType === 'MULTIPLE_STATEMENT'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                          : item.parsedQuestion.questionType === 'COMMON_STEM'
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300'
+                          : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
+                      }`}>
+                        {item.parsedQuestion.questionType === 'MULTIPLE_STATEMENT'
+                          ? 'বহুপদী'
+                          : item.parsedQuestion.questionType === 'COMMON_STEM'
+                          ? 'অভিন্ন তথ্য'
+                          : 'Standard'}
+                      </span>
+                      <span className="font-bold px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
+                        Ans: {item.parsedQuestion.correctAnswer}
+                      </span>
+                    </div>
                   )}
                 </div>
+
+                {/* Stimulus or Statements details if present */}
+                {item.parsedQuestion?.questionType === 'COMMON_STEM' && (item.parsedQuestion.commonInfoContent || item.parsedQuestion.commonInfoTitle) && (
+                  <div className="pl-6 text-[11px] text-purple-700 dark:text-purple-300 font-medium">
+                    📖 উদ্দীপক: {item.parsedQuestion.commonInfoTitle || 'সাধারণ অনুচ্ছেদ'} — {item.parsedQuestion.commonInfoContent?.slice(0, 70)}...
+                  </div>
+                )}
+                {item.parsedQuestion?.questionType === 'MULTIPLE_STATEMENT' && item.parsedQuestion.statements && (
+                  <div className="pl-6 text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                    📝 {item.parsedQuestion.statements.length} টি বক্তব্য (Statements)
+                  </div>
+                )}
 
                 {item.parsedQuestion?.sources && item.parsedQuestion.sources.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap pl-6 text-[11px]">
