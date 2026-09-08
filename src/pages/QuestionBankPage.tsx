@@ -174,7 +174,16 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
       const next = current.includes(guide)
         ? current.filter(g => g !== guide)
         : [...current, guide];
-      return { ...prev, guides: next };
+
+      // When a single specific guide is selected, automatically sort by entry number
+      let nextSortBy = prev.sortBy;
+      if (next.length === 1) {
+        nextSortBy = 'entryNoAsc';
+      } else if (current.length === 1 && next.length !== 1 && (prev.sortBy === 'entryNoAsc' || prev.sortBy === 'entryNoDesc')) {
+        nextSortBy = 'createdAtDesc';
+      }
+
+      return { ...prev, guides: next, sortBy: nextSortBy };
     });
     setCurrentPage(1);
   };
@@ -230,6 +239,9 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
         filter.searchQuery
     );
   }, [filter]);
+
+  const hasSpecificGuide = Boolean(filter.guides && filter.guides.length === 1);
+  const specificGuideName = hasSpecificGuide ? filter.guides![0] : null;
 
   // Selection handlers
   const handleToggleSelectAll = () => {
@@ -395,15 +407,35 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
 
             <select
               id="sort-by-select"
-              value={filter.sortBy || 'createdAtDesc'}
+              value={filter.sortBy || (hasSpecificGuide ? 'entryNoAsc' : 'createdAtDesc')}
               onChange={e =>
                 setFilter(prev => ({ ...prev, sortBy: e.target.value as any }))
               }
-              className="text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 py-2 px-2.5 text-zinc-800 dark:text-zinc-200 focus:outline-indigo-500"
+              className={`text-xs rounded-lg border py-2 px-2.5 transition focus:outline-indigo-500 font-medium ${
+                filter.sortBy === 'entryNoAsc' || filter.sortBy === 'entryNoDesc'
+                  ? 'border-purple-400 bg-purple-50 text-purple-900 dark:border-purple-600 dark:bg-purple-950/40 dark:text-purple-200 shadow-xs'
+                  : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
+              }`}
             >
+              {hasSpecificGuide && (
+                <>
+                  <option value="entryNoAsc">
+                    {specificGuideName} Entry # (Low → High)
+                  </option>
+                  <option value="entryNoDesc">
+                    {specificGuideName} Entry # (High → Low)
+                  </option>
+                </>
+              )}
               <option value="createdAtDesc">Newest First</option>
               <option value="createdAtAsc">Oldest First</option>
               <option value="question">Alphabetical (A-Z)</option>
+              {!hasSpecificGuide && (
+                <>
+                  <option value="entryNoAsc">Guide Entry # (Ascending)</option>
+                  <option value="entryNoDesc">Guide Entry # (Descending)</option>
+                </>
+              )}
             </select>
           </div>
         </div>
@@ -531,7 +563,16 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                 {(filter.guides && filter.guides.length > 0) && (
                   <button
                     type="button"
-                    onClick={() => setFilter(prev => ({ ...prev, guides: [] }))}
+                    onClick={() =>
+                      setFilter(prev => ({
+                        ...prev,
+                        guides: [],
+                        sortBy:
+                          prev.sortBy === 'entryNoAsc' || prev.sortBy === 'entryNoDesc'
+                            ? 'createdAtDesc'
+                            : prev.sortBy
+                      }))
+                    }
                     className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline"
                   >
                     Clear guides
@@ -557,6 +598,30 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                   );
                 })}
               </div>
+
+              {/* Status note when a specific guide is selected */}
+              {hasSpecificGuide && (
+                <div className="mt-2 flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                    <span>
+                      Questions sorted by <strong className="font-semibold">{specificGuideName}</strong> Entry No.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFilter(prev => ({
+                        ...prev,
+                        sortBy: prev.sortBy === 'entryNoDesc' ? 'entryNoAsc' : 'entryNoDesc'
+                      }))
+                    }
+                    className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 hover:underline inline-flex items-center gap-1"
+                  >
+                    {filter.sortBy === 'entryNoDesc' ? 'Sort 1 → 999' : 'Sort 999 → 1'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Practice Status Filter Section (Multiple Choice) */}
@@ -842,7 +907,15 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                   <th className="py-3 px-4">Question Prompt</th>
                   <th className="py-3 px-4 w-36">Subject / Chapter</th>
                   <th className="py-3 px-4 w-16 text-center">Answer</th>
-                  <th className="py-3 px-4 w-48">Sources</th>
+                  <th className="py-3 px-4 w-48">
+                    {hasSpecificGuide ? (
+                      <span className="text-purple-700 dark:text-purple-300 font-bold inline-flex items-center gap-1">
+                        Sources ({specificGuideName} #{filter.sortBy === 'entryNoDesc' ? '↓' : '↑'})
+                      </span>
+                    ) : (
+                      'Sources'
+                    )}
+                  </th>
                   <th className="py-3 px-4 w-28">Flags</th>
                   <th className="py-3 px-4 w-24 text-right">Actions</th>
                 </tr>
@@ -855,11 +928,25 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                   const chapterName = allChaptersMap.get(q.chapterId)?.name || 'Chapter';
                   const stat = statsMap.get(q.id);
 
-                  // Extract sources cleanly
-                  const questionSources =
+                  // Extract sources cleanly and sort selected guide to the front
+                  const rawSources =
                     q.sources && q.sources.length > 0
                       ? q.sources
                       : [{ type: q.sourceType || 'Board', name: q.sourceName || '' }];
+
+                  const questionSources = [...rawSources].sort((a, b) => {
+                    const aMatch =
+                      hasSpecificGuide &&
+                      a.type?.toLowerCase() === 'guide' &&
+                      a.name?.toLowerCase().trim() === specificGuideName?.toLowerCase().trim();
+                    const bMatch =
+                      hasSpecificGuide &&
+                      b.type?.toLowerCase() === 'guide' &&
+                      b.name?.toLowerCase().trim() === specificGuideName?.toLowerCase().trim();
+                    if (aMatch && !bMatch) return -1;
+                    if (!aMatch && bMatch) return 1;
+                    return 0;
+                  });
 
                   return (
                     <React.Fragment key={q.id}>
@@ -931,11 +1018,18 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                             {questionSources.map((s, sIdx) => {
                               const isGuide = s.type?.toLowerCase() === 'guide';
                               const isSchool = s.type?.toLowerCase() === 'school';
+                              const isMatchingGuide =
+                                hasSpecificGuide &&
+                                isGuide &&
+                                s.name?.toLowerCase().trim() === specificGuideName?.toLowerCase().trim();
+
                               return (
                                 <span
                                   key={sIdx}
-                                  className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                                    isGuide
+                                  className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium transition ${
+                                    isMatchingGuide
+                                      ? 'bg-purple-100 text-purple-900 border border-purple-400 dark:bg-purple-900/60 dark:text-purple-200 dark:border-purple-600 shadow-xs font-semibold ring-1 ring-purple-400/40'
+                                      : isGuide
                                       ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
                                       : isSchool
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
@@ -946,7 +1040,13 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                                   <span className="font-bold">{s.type}:</span>
                                   <span className="truncate max-w-[100px]">{s.name}</span>
                                   {isGuide && s.entryNo && (
-                                    <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-purple-200/70 dark:bg-purple-900/60 font-semibold">
+                                    <span
+                                      className={`font-mono text-[9px] px-1 py-0.2 rounded font-bold ${
+                                        isMatchingGuide
+                                          ? 'bg-purple-600 text-white dark:bg-purple-400 dark:text-purple-950 shadow-xs'
+                                          : 'bg-purple-200/70 dark:bg-purple-900/60 font-semibold'
+                                      }`}
+                                    >
                                       #{s.entryNo}
                                     </span>
                                   )}

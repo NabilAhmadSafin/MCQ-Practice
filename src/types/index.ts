@@ -97,7 +97,7 @@ export interface QuestionFilter {
   searchQuery?: string;
   attemptStatus?: 'all' | 'attempted' | 'unattempted' | 'wrong';
   attemptStatuses?: ('attempted' | 'unattempted' | 'wrong')[];
-  sortBy?: 'createdAtDesc' | 'createdAtAsc' | 'question';
+  sortBy?: 'createdAtDesc' | 'createdAtAsc' | 'question' | 'entryNoAsc' | 'entryNoDesc';
 }
 
 export interface ValidationItem {

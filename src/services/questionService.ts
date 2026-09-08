@@ -46,6 +46,59 @@ export function normalizeQuestionSources(sources: QuestionSource[]): {
   };
 }
 
+/**
+ * Extract entry number for a specific guide from a question's sources.
+ */
+export function getGuideEntryNo(question: Question, guideName?: string): string | undefined {
+  if (!question.sources || question.sources.length === 0) return undefined;
+
+  if (guideName && guideName.trim()) {
+    const target = guideName.toLowerCase().trim();
+    const match = question.sources.find(
+      s => s.type?.toLowerCase() === 'guide' && s.name?.toLowerCase().trim() === target
+    );
+    if (match?.entryNo !== undefined && match?.entryNo !== null && String(match.entryNo).trim() !== '') {
+      return String(match.entryNo).trim();
+    }
+  }
+
+  // Fallback: search for any guide source that has an entryNo
+  const anyGuide = question.sources.find(
+    s => s.type?.toLowerCase() === 'guide' && s.entryNo !== undefined && s.entryNo !== null && String(s.entryNo).trim() !== ''
+  );
+  return anyGuide?.entryNo ? String(anyGuide.entryNo).trim() : undefined;
+}
+
+/**
+ * Compare two questions by entry number using natural sorting (e.g. 1, 2, 10, 100).
+ * Questions without an entry number are sorted to the end.
+ */
+export function compareQuestionsByEntryNo(
+  a: Question,
+  b: Question,
+  guideName?: string,
+  direction: 'asc' | 'desc' = 'asc'
+): number {
+  const entryA = getGuideEntryNo(a, guideName);
+  const entryB = getGuideEntryNo(b, guideName);
+
+  // If neither has entryNo, maintain stable ordering (createdAt descending)
+  if (!entryA && !entryB) {
+    return b.createdAt - a.createdAt;
+  }
+  // Questions without entry number always go to the end
+  if (!entryA) return 1;
+  if (!entryB) return -1;
+
+  // Natural numeric sort
+  const cmp = entryA.localeCompare(entryB, undefined, { numeric: true, sensitivity: 'base' });
+  if (cmp !== 0) {
+    return direction === 'desc' ? -cmp : cmp;
+  }
+
+  return b.createdAt - a.createdAt;
+}
+
 export async function createQuestion(data: {
   subjectId: string;
   chapterId: string;
@@ -196,11 +249,17 @@ export async function getPracticeQuestions(params: {
     }
   }
 
+  // If a specific guide is selected and shuffle is not enabled, sort by entry number
+  const hasSpecificGuide = params.guides && params.guides.length === 1;
+  const specificGuide = hasSpecificGuide ? params.guides![0] : undefined;
+
   if (params.shuffle) {
     for (let i = questions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [questions[i], questions[j]] = [questions[j], questions[i]];
     }
+  } else if (hasSpecificGuide) {
+    questions.sort((a, b) => compareQuestionsByEntryNo(a, b, specificGuide, 'asc'));
   }
 
   const limit = params.count && params.count > 0 ? params.count : 20;
@@ -309,8 +368,21 @@ export async function getQuestionsPaginated(
   }
 
   // Sorting
-  const sortBy = filter.sortBy || 'createdAtDesc';
+  const hasSpecificGuide = filter.guides && filter.guides.length === 1;
+  const specificGuide = hasSpecificGuide ? filter.guides![0] : undefined;
+
+  let sortBy = filter.sortBy;
+  if (!sortBy) {
+    sortBy = hasSpecificGuide ? 'entryNoAsc' : 'createdAtDesc';
+  }
+
   filtered.sort((a, b) => {
+    if (sortBy === 'entryNoAsc') {
+      return compareQuestionsByEntryNo(a, b, specificGuide, 'asc');
+    }
+    if (sortBy === 'entryNoDesc') {
+      return compareQuestionsByEntryNo(a, b, specificGuide, 'desc');
+    }
     if (sortBy === 'createdAtDesc') return b.createdAt - a.createdAt;
     if (sortBy === 'createdAtAsc') return a.createdAt - b.createdAt;
     if (sortBy === 'question') return a.question.localeCompare(b.question);

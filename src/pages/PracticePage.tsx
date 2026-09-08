@@ -168,9 +168,14 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   };
 
   const toggleGuide = (guide: string) => {
-    setConfigGuides(prev =>
-      prev.includes(guide) ? prev.filter(g => g !== guide) : [...prev, guide]
-    );
+    setConfigGuides(prev => {
+      const next = prev.includes(guide) ? prev.filter(g => g !== guide) : [...prev, guide];
+      if (next.length === 1 && prev.length === 0) {
+        // Automatically disable shuffle when a single specific guide is chosen
+        setConfigShuffle(false);
+      }
+      return next;
+    });
   };
 
   // Start practice session
@@ -648,15 +653,22 @@ export const PracticePage: React.FC<PracticePageProps> = ({
 
             {/* Options: Shuffle & Timer */}
             <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={configShuffle}
-                  onChange={e => setConfigShuffle(e.target.checked)}
-                  className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                />
-                <span>Shuffle questions randomly</span>
-              </label>
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={configShuffle}
+                    onChange={e => setConfigShuffle(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Shuffle questions randomly</span>
+                </label>
+                {configGuides.length === 1 && !configShuffle && (
+                  <span className="text-[11px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                    ⚡ Practicing in {configGuides[0]} Entry # Order
+                  </span>
+                )}
+              </div>
 
               <div className="flex items-center gap-2 text-xs">
                 <Clock className="w-3.5 h-3.5 text-zinc-400" />
