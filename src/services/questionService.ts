@@ -324,7 +324,7 @@ export async function getQuestionsPaginated(
       if (!hasMatchingType) return false;
     }
 
-    // Multi-guide filtering (e.g. ['Panjaree', 'Lecture', 'Royal', 'Chorcha', 'eProshnobank'])
+    // Multi-guide filtering (e.g. ['Panjaree', 'Lecture', 'Lecture Supplement', 'Royal', 'Chorcha', 'eProshnobank'])
     if (filter.guides && filter.guides.length > 0) {
       const selectedGuides = new Set(filter.guides.map(g => g.toLowerCase().trim()));
       const hasMatchingGuide = (q.sources || []).some(

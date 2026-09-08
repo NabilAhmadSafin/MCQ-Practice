@@ -1177,7 +1177,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               Sources ({sources.length}) *
             </label>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Add one or multiple sources (Board, School, or Guide like Panjaree, Lecture, Royal, Chorcha, eProshnobank).
+              Add one or multiple sources (Board, School, or Guide like Panjaree, Lecture, Lecture Supplement, Royal, Chorcha, eProshnobank).
             </p>
           </div>
           <button

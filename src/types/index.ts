@@ -9,6 +9,7 @@ export interface QuestionSource {
 export const GUIDE_OPTIONS = [
   'Panjaree',
   'Lecture',
+  'Lecture Supplement',
   'Royal',
   'Chorcha',
   'eProshnobank'
@@ -111,7 +112,7 @@ export interface QuestionFilter {
   questionTypes?: QuestionType[];
   sourceTypes?: string[]; // multiple selection: ['Board', 'School']
   sourceType?: string;
-  guides?: string[]; // multiple selection: ['Panjaree', 'Lecture', 'Royal', 'Chorcha', 'eProshnobank']
+  guides?: string[]; // multiple selection: ['Panjaree', 'Lecture', 'Lecture Supplement', 'Royal', 'Chorcha', 'eProshnobank']
   sourceName?: string;
   important?: boolean;
   veryImportant?: boolean;

@@ -560,7 +560,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               </div>
             </div>
 
-            {/* Guides (Multi-select: Panjaree, Lecture, Royal, Chorcha, eProshnobank) */}
+            {/* Guides (Multi-select: Panjaree, Lecture, Lecture Supplement, Royal, Chorcha, eProshnobank) */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
