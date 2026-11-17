@@ -23,53 +23,147 @@ interface ParsedToken {
 }
 
 /**
+ * Normalizes escaped newline sequences (\n, \r\n) in plain text tokens.
+ */
+function normalizePlainTextNewlines(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+}
+
+/**
+ * Finds the matching closing brace index '}' starting at openBraceIdx (where text[openBraceIdx] === '{').
+ * Returns -1 if unbalanced.
+ */
+function findMatchingBrace(text: string, openBraceIdx: number): number {
+  let depth = 0;
+  for (let i = openBraceIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '\\') {
+      i++; // skip escaped character
+      continue;
+    }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * Tokenizes text containing LaTeX math ($...$, \(...\), $$...$$, \[...\])
- * and chemistry tags ([chem]...[/chem], \ce{...}).
+ * and chemistry tags ([chem]...[/chem], \ce{...} with nested braces).
  */
 function parseMixedContent(text: string): ParsedToken[] {
   if (!text) return [];
 
   const tokens: ParsedToken[] = [];
-  // Regex matches:
-  // 1. Block math: \[\s*([\s\S]*?)\s*\] OR \$\$\s*([\s\S]*?)\s*\$\$
-  // 2. Inline math: \(\s*([\s\S]*?)\s*\) OR \$(?!\$)([^\$\n]+?)\$
-  // 3. Chemistry tags: \[chem\]([\s\S]*?)\[\/chem\] OR \\ce\{([\s\S]*?)\}
-  const pattern = /(\\\[[\s\S]*?\\\]|\$\$[\s\S]*?\$\$|\\ce\{[\s\S]*?\}|\[chem\][\s\S]*?\[\/chem\]|\\\([\s\S]*?\\\)|\$(?!\$)[^\$\n]+?\$)/g;
+  let i = 0;
+  let textStart = 0;
 
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  const pushText = (endIdx: number) => {
+    if (endIdx > textStart) {
+      tokens.push({
+        type: 'text',
+        value: normalizePlainTextNewlines(text.slice(textStart, endIdx))
+      });
+    }
+  };
 
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      const plainText = text.substring(lastIndex, match.index);
-      tokens.push({ type: 'text', value: plainText });
+  while (i < text.length) {
+    // 1. Escaped dollar sign \$ -> keep as text
+    if (text[i] === '\\' && text[i + 1] === '$') {
+      i += 2;
+      continue;
     }
 
-    const matchedStr = match[0];
-
-    if (matchedStr.startsWith('\\[') && matchedStr.endsWith('\\]')) {
-      tokens.push({ type: 'math-block', value: matchedStr.slice(2, -2).trim() });
-    } else if (matchedStr.startsWith('$$') && matchedStr.endsWith('$$')) {
-      tokens.push({ type: 'math-block', value: matchedStr.slice(2, -2).trim() });
-    } else if (matchedStr.startsWith('\\(') && matchedStr.endsWith('\\)')) {
-      tokens.push({ type: 'math-inline', value: matchedStr.slice(2, -2).trim() });
-    } else if (matchedStr.startsWith('$') && matchedStr.endsWith('$')) {
-      tokens.push({ type: 'math-inline', value: matchedStr.slice(1, -1).trim() });
-    } else if (matchedStr.startsWith('[chem]') && matchedStr.endsWith('[/chem]')) {
-      tokens.push({ type: 'chem-block', value: matchedStr.slice(6, -7).trim() });
-    } else if (matchedStr.startsWith('\\ce{') && matchedStr.endsWith('}')) {
-      tokens.push({ type: 'chem-inline', value: matchedStr.slice(4, -1).trim() });
-    } else {
-      tokens.push({ type: 'text', value: matchedStr });
+    // 2. Block math: \[ ... \]
+    if (text.startsWith('\\[', i)) {
+      const end = text.indexOf('\\]', i + 2);
+      if (end !== -1) {
+        pushText(i);
+        tokens.push({ type: 'math-block', value: text.slice(i + 2, end).trim() });
+        i = end + 2;
+        textStart = i;
+        continue;
+      }
     }
 
-    lastIndex = pattern.lastIndex;
+    // 3. Inline math: \( ... \)
+    if (text.startsWith('\\(', i)) {
+      const end = text.indexOf('\\)', i + 2);
+      if (end !== -1) {
+        pushText(i);
+        tokens.push({ type: 'math-inline', value: text.slice(i + 2, end).trim() });
+        i = end + 2;
+        textStart = i;
+        continue;
+      }
+    }
+
+    // 4. Standalone \ce{...} with balanced brace matching
+    if (text.startsWith('\\ce{', i)) {
+      const closeIdx = findMatchingBrace(text, i + 3);
+      if (closeIdx !== -1) {
+        pushText(i);
+        tokens.push({ type: 'chem-inline', value: text.slice(i + 4, closeIdx).trim() });
+        i = closeIdx + 1;
+        textStart = i;
+        continue;
+      }
+    }
+
+    // 5. [chem]...[/chem]
+    if (text.startsWith('[chem]', i)) {
+      const end = text.indexOf('[/chem]', i + 6);
+      if (end !== -1) {
+        pushText(i);
+        tokens.push({ type: 'chem-block', value: text.slice(i + 6, end).trim() });
+        i = end + 7;
+        textStart = i;
+        continue;
+      }
+    }
+
+    // 6. Block math: $$ ... $$
+    if (text.startsWith('$$', i)) {
+      const end = text.indexOf('$$', i + 2);
+      if (end !== -1) {
+        pushText(i);
+        tokens.push({ type: 'math-block', value: text.slice(i + 2, end).trim() });
+        i = end + 2;
+        textStart = i;
+        continue;
+      }
+    }
+
+    // 7. Inline math: $ ... $ (single line, non-empty)
+    if (text[i] === '$' && text[i + 1] !== '$') {
+      let end = -1;
+      for (let j = i + 1; j < text.length; j++) {
+        if (text[j] === '\\') {
+          j++;
+          continue;
+        }
+        if (text[j] === '\n') break;
+        if (text[j] === '$') {
+          end = j;
+          break;
+        }
+      }
+      if (end !== -1 && end > i + 1) {
+        pushText(i);
+        tokens.push({ type: 'math-inline', value: text.slice(i + 1, end).trim() });
+        i = end + 1;
+        textStart = i;
+        continue;
+      }
+    }
+
+    i++;
   }
 
-  if (lastIndex < text.length) {
-    tokens.push({ type: 'text', value: text.substring(lastIndex) });
-  }
-
+  pushText(text.length);
   return tokens;
 }
 
@@ -117,7 +211,6 @@ const SingleQuestionImage: React.FC<{
           />
         )}
 
-        {/* Hover zoom pill */}
         {!hasError && (
           <button
             type="button"
@@ -131,14 +224,12 @@ const SingleQuestionImage: React.FC<{
         )}
       </div>
 
-      {/* Caption if provided */}
       {image.caption && (
         <p className="mt-2 text-center text-xs text-zinc-600 dark:text-zinc-400 italic">
           {image.caption}
         </p>
       )}
 
-      {/* Lightbox */}
       <ImageLightbox
         src={src}
         alt={image.altText}
@@ -159,13 +250,11 @@ export const RichContentRenderer: React.FC<RichContentRendererProps> = ({
   textClassName = '',
   imageMaxHeight
 }) => {
-  // Parse content into tokens
   const tokens = useMemo(() => {
     if (!content) return [];
     return parseMixedContent(content);
   }, [content]);
 
-  // Render images gallery
   const renderImages = () => {
     if (!images || images.length === 0) return null;
     return (
@@ -177,7 +266,6 @@ export const RichContentRenderer: React.FC<RichContentRendererProps> = ({
     );
   };
 
-  // If content blocks are provided, render structured blocks
   if (contentBlocks && contentBlocks.length > 0) {
     return (
       <div className={`space-y-3 ${className}`}>
@@ -198,9 +286,13 @@ export const RichContentRenderer: React.FC<RichContentRendererProps> = ({
                     return <ChemistryRenderer key={tIdx} equation={t.value} displayMode />;
                   }
                   if (t.type === 'chem-inline') {
-                    return <ChemistryRenderer key={tIdx} formula={t.value} />;
+                    return <ChemistryRenderer key={tIdx} equation={t.value} />;
                   }
-                  return <span key={tIdx}>{t.value}</span>;
+                  return (
+                    <span key={tIdx} className="whitespace-pre-wrap">
+                      {t.value}
+                    </span>
+                  );
                 })}
               </div>
             );
@@ -237,7 +329,6 @@ export const RichContentRenderer: React.FC<RichContentRendererProps> = ({
     );
   }
 
-  // Mixed string content rendering
   return (
     <div className={`rich-content-container ${className}`}>
       {imagePosition === 'top' && renderImages()}
@@ -255,16 +346,14 @@ export const RichContentRenderer: React.FC<RichContentRendererProps> = ({
               return <ChemistryRenderer key={idx} equation={token.value} displayMode />;
             }
             if (token.type === 'chem-inline') {
-              return <ChemistryRenderer key={idx} formula={token.value} />;
+              return <ChemistryRenderer key={idx} equation={token.value} />;
             }
 
-            // Normal text block: check if entire plain text line represents a standalone chemical reaction
             const trimmed = token.value.trim();
             if (isLikelyChemicalReaction(trimmed) && trimmed.length < 80 && !trimmed.includes('\n')) {
               return <ChemistryRenderer key={idx} equation={trimmed} displayMode />;
             }
 
-            // Standard text with proper newline preservation
             return (
               <span key={idx} className="whitespace-pre-wrap">
                 {token.value}

@@ -4,6 +4,21 @@ export interface ParsedCodeResult {
   questions: any[];
 }
 
+const LATEX_COMMANDS_REGEX =
+  /(\\\\)|\\(ce|pu|frac|dfrac|tfrac|cfrac|sqrt|Delta|Gamma|Theta|Lambda|Sigma|Omega|Phi|Psi|Pi|alpha|beta|gamma|delta|epsilon|varepsilon|zeta|eta|theta|vartheta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|varphi|chi|psi|omega|text|textbf|textit|textrm|mathrm|mathbf|mathit|times|div|cdot|pm|mp|leq|le|geq|ge|neq|approx|equiv|propto|infty|partial|nabla|forall|exists|in|notin|subset|subseteq|cup|cap|rightarrow|leftarrow|leftrightarrow|Rightarrow|Leftarrow|Leftrightarrow|xrightarrow|xleftarrow|uparrow|downarrow|to|gets|implies|iff|int|oint|sum|prod|lim|sin|cos|tan|cot|sec|csc|log|ln|exp|left|right|big|Big|vec|hat|bar|tilde|dot|ddot|overline|underline|begin|end|degree|circ|angle|perp|parallel|triangle|square)\b/g;
+
+/**
+ * Protects unescaped single-backslash LaTeX commands inside JS/JSON code inputs
+ * (e.g. "\ce{H2O}" -> "\\ce{H2O}", "\frac{1}{2}" -> "\\frac{1}{2}") without touching
+ * already-escaped "\\ce" or regular "\n" line breaks.
+ */
+function protectUnescapedLatexCommands(code: string): string {
+  return code.replace(LATEX_COMMANDS_REGEX, (fullMatch, alreadyEscaped: string, cmd: string) => {
+    if (alreadyEscaped) return alreadyEscaped;
+    return `\\\\${cmd}`;
+  });
+}
+
 export function parseCodeInput(rawInput: string): ParsedCodeResult {
   const trimmed = rawInput.trim();
   if (!trimmed) {
@@ -29,19 +44,18 @@ export function parseCodeInput(rawInput: string): ParsedCodeResult {
   try {
     parsed = JSON.parse(codeToParse);
   } catch {
-    // If strict JSON fails, try lenient conversion or safe evaluation
     try {
-      // Clean comments
+      // Strip block comments and full-line / trailing JS comments outside strings
       const noComments = codeToParse
         .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/\/\/.*/g, '');
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-      // Safely evaluate standard JavaScript object literal without window/document/global access
-      // Note: Using Function constructor to parse object literals is safe when inputs are data objects
+      const protectedCode = protectUnescapedLatexCommands(noComments);
+
       // eslint-disable-next-line no-new-func
       const parseFn = new Function(`
         "use strict";
-        return (${noComments});
+        return (${protectedCode});
       `);
       parsed = parseFn();
     } catch (e: any) {
@@ -53,14 +67,12 @@ export function parseCodeInput(rawInput: string): ParsedCodeResult {
     throw new Error('Could not parse any valid data from code input');
   }
 
-  // If parsed is array directly
   if (Array.isArray(parsed)) {
     return {
       questions: parsed
     };
   }
 
-  // If parsed has questions array
   if (parsed.questions && Array.isArray(parsed.questions)) {
     return {
       subject: parsed.subject || parsed.subjectName,
@@ -69,7 +81,6 @@ export function parseCodeInput(rawInput: string): ParsedCodeResult {
     };
   }
 
-  // If single question object passed
   if (parsed.question && (parsed.options || parsed.answer)) {
     return {
       subject: parsed.subject,
