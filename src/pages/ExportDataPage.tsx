@@ -1,48 +1,64 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Download, 
-  Upload, 
-  Trash2, 
-  FileJson, 
-  FileSpreadsheet, 
-  CheckCircle2, 
+import {
+  Download,
+  Upload,
+  Trash2,
+  FileJson,
+  FileSpreadsheet,
+  CheckCircle2,
   AlertTriangle,
-  Database
+  Database,
+  HardDrive,
+  ArrowRightLeft
 } from 'lucide-react';
-import { 
-  exportQuestionsJSON, 
-  exportQuestionsCSV, 
-  exportHistoryJSON, 
-  importQuestionsJSON, 
-  resetEntireDatabase 
+import {
+  exportQuestionsJSON,
+  exportQuestionsCSV,
+  exportHistoryJSON,
+  importQuestionsJSON,
+  resetEntireDatabase,
+  getDatabaseStatus,
+  getLegacyIndexedDbCounts,
+  migrateLegacyIndexedDbToSqlite,
+  type DatabaseStatus
 } from '../utils/exportImport';
 import { ConfirmModal } from '../components/common/ConfirmModal';
-import { db } from '../db';
 import type { NavSection } from '../components/layout/Sidebar';
 
 interface ExportDataPageProps {
   onNavigate: (section: NavSection, params?: any) => void;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) => {
-  const [stats, setStats] = useState({ questions: 0, subjects: 0, chapters: 0, sessions: 0 });
+  const [dbStatus, setDbStatus] = useState<DatabaseStatus | null>(null);
+  const [legacyCounts, setLegacyCounts] = useState<{
+    hasData: boolean;
+    questions: number;
+    subjects: number;
+    mediaFiles: number;
+  }>({ hasData: false, questions: 0, subjects: 0, mediaFiles: 0 });
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const loadCounts = async () => {
-    const [qCount, sCount, cCount, sessCount] = await Promise.all([
-      db.questions.count(),
-      db.subjects.count(),
-      db.chapters.count(),
-      db.sessions.count()
-    ]);
-    setStats({
-      questions: qCount,
-      subjects: sCount,
-      chapters: cCount,
-      sessions: sessCount
-    });
+    try {
+      const [status, legacy] = await Promise.all([
+        getDatabaseStatus(),
+        getLegacyIndexedDbCounts()
+      ]);
+      setDbStatus(status);
+      setLegacyCounts(legacy);
+    } catch (err) {
+      console.error('Failed to load database status:', err);
+    }
   };
 
   useEffect(() => {
@@ -58,7 +74,7 @@ export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) =>
     try {
       const text = await file.text();
       const count = await importQuestionsJSON(text);
-      setImportStatus(`Successfully restored ${count} questions and curriculum structures!`);
+      setImportStatus(`Successfully restored ${count} questions and curriculum structures into SQLite!`);
       await loadCounts();
     } catch (err: any) {
       setImportStatus(`Import failed: ${err.message || String(err)}`);
@@ -68,21 +84,39 @@ export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) =>
     }
   };
 
+  const handleMigrateLegacy = async () => {
+    setIsProcessing(true);
+    setImportStatus(null);
+    try {
+      const res = await migrateLegacyIndexedDbToSqlite();
+      setImportStatus(
+        `Migrated ${res.questionsCount} questions, ${res.subjectsCount} subjects, and ${res.mediaCount} images from browser IndexedDB into SQLite!`
+      );
+      await loadCounts();
+    } catch (err: any) {
+      setImportStatus(`Migration failed: ${err.message || String(err)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleResetConfirm = async () => {
     await resetEntireDatabase();
     setIsResetModalOpen(false);
-    setImportStatus('Database successfully reset to a clean state.');
+    setImportStatus('SQLite database and media folder successfully reset to a clean state.');
     await loadCounts();
   };
+
+  const stats = dbStatus?.counts || { questions: 0, subjects: 0, chapters: 0, sessions: 0, attempts: 0 };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-          Data Export & Backup
+          Database, Export & Backup
         </h1>
         <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-          Safeguard your questions and practice stats with full offline backups.
+          Your question bank is powered by a local SQLite database and disk media folder.
         </p>
       </div>
 
@@ -90,6 +124,59 @@ export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) =>
         <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-xs sm:text-sm text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
           <span>{importStatus}</span>
+        </div>
+      )}
+
+      {/* SQLite Storage Info Card */}
+      {dbStatus && (
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-3 shadow-xs">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-emerald-600" />
+              <span>Active Storage Engine: {dbStatus.engine}</span>
+            </h2>
+            <span className="text-xs font-medium text-zinc-500">
+              DB: {formatBytes(dbStatus.dbSizeBytes)} • Media ({dbStatus.mediaCount} files):{' '}
+              {formatBytes(dbStatus.mediaSizeBytes)}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+              <div className="text-[11px] font-semibold text-zinc-500">SQLite Database File</div>
+              <div className="font-mono text-[11px] text-zinc-800 dark:text-zinc-200 break-all mt-0.5">
+                {dbStatus.dbPath}
+              </div>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+              <div className="text-[11px] font-semibold text-zinc-500">Disk Media Folder</div>
+              <div className="font-mono text-[11px] text-zinc-800 dark:text-zinc-200 break-all mt-0.5">
+                {dbStatus.mediaDir}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Optional 1-click migration from legacy browser IndexedDB */}
+      {legacyCounts.hasData && (
+        <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-5 space-y-3">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm">
+            <ArrowRightLeft className="w-4 h-4" />
+            <span>Existing Browser IndexedDB Data Found</span>
+          </div>
+          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+            Found {legacyCounts.questions} questions, {legacyCounts.subjects} subjects, and{' '}
+            {legacyCounts.mediaFiles} images in your old browser storage. Import them directly into your SQLite database:
+          </p>
+          <button
+            type="button"
+            onClick={handleMigrateLegacy}
+            disabled={isProcessing}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white transition-colors"
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>{isProcessing ? 'Migrating...' : 'Migrate Browser Data to SQLite'}</span>
+          </button>
         </div>
       )}
 
@@ -120,7 +207,7 @@ export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) =>
           <span>Export Options</span>
         </h2>
         <p className="text-xs text-zinc-500">
-          Download your complete question bank or test history. All downloads are generated locally in your browser.
+          Download your complete question bank or test history. For full multi-GB backups including images, you can also copy the <code className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded">data/</code> folder directly.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
@@ -163,7 +250,7 @@ export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) =>
           <span>Restore from Backup</span>
         </h2>
         <p className="text-xs text-zinc-500">
-          Restore questions and subjects from a previously exported JSON backup file.
+          Restore questions and subjects from a previously exported JSON backup file into SQLite.
         </p>
 
         <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-xs transition-colors">
@@ -186,7 +273,7 @@ export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) =>
           <span>Danger Zone: Reset Database</span>
         </div>
         <p className="text-xs text-zinc-600 dark:text-zinc-400">
-          Permanently deletes all questions, chapters, subjects, and test records from your local storage.
+          Permanently deletes all questions, chapters, subjects, media files, and test records from your SQLite database.
         </p>
         <button
           type="button"
@@ -202,7 +289,7 @@ export const ExportDataPage: React.FC<ExportDataPageProps> = ({ onNavigate }) =>
       <ConfirmModal
         isOpen={isResetModalOpen}
         title="Reset Entire Question Bank"
-        message="Are you sure you want to reset the question bank?\n\nThis will permanently erase all questions, subjects, chapters, attempts, and history.\n\nMake sure you have exported a JSON backup first if you want to keep your data."
+        message="Are you sure you want to reset the question bank?\n\nThis will permanently erase all questions, subjects, chapters, media files, attempts, and history from SQLite.\n\nMake sure you have backed up your data folder or exported a JSON backup first."
         confirmText="Yes, Permanently Reset Everything"
         onConfirm={handleResetConfirm}
         onCancel={() => setIsResetModalOpen(false)}

@@ -1,4 +1,4 @@
-import { db } from './index';
+import { apiFetch } from '../services/apiClient';
 import type { Subject, Chapter, Question } from '../types';
 
 export const INITIAL_SUBJECTS: Subject[] = [
@@ -315,19 +315,15 @@ export async function seedDatabaseIfEmpty(): Promise<boolean> {
   isSeedingInProgress = true;
 
   try {
-    const subjectCount = await db.subjects.count();
-    if (subjectCount === 0) {
-      await db.transaction('rw', [db.subjects, db.chapters, db.questions], async () => {
-        const countInside = await db.subjects.count();
-        if (countInside === 0) {
-          await db.subjects.bulkPut(INITIAL_SUBJECTS);
-          await db.chapters.bulkPut(INITIAL_CHAPTERS);
-          await db.questions.bulkPut(INITIAL_QUESTIONS);
-        }
-      });
-      return true;
-    }
-    return false;
+    const res = await apiFetch<{ seeded: boolean }>('/api/seed', {
+      method: 'POST',
+      body: JSON.stringify({
+        subjects: INITIAL_SUBJECTS,
+        chapters: INITIAL_CHAPTERS,
+        questions: INITIAL_QUESTIONS
+      })
+    });
+    return Boolean(res?.seeded);
   } catch (err) {
     console.error('Error seeding database:', err);
     return false;
@@ -337,15 +333,12 @@ export async function seedDatabaseIfEmpty(): Promise<boolean> {
 }
 
 export async function forceResetAndSeed(): Promise<void> {
-  await db.transaction('rw', [db.subjects, db.chapters, db.questions, db.attempts, db.sessions], async () => {
-    await db.subjects.clear();
-    await db.chapters.clear();
-    await db.questions.clear();
-    await db.attempts.clear();
-    await db.sessions.clear();
-
-    await db.subjects.bulkPut(INITIAL_SUBJECTS);
-    await db.chapters.bulkPut(INITIAL_CHAPTERS);
-    await db.questions.bulkPut(INITIAL_QUESTIONS);
+  await apiFetch('/api/seed/force', {
+    method: 'POST',
+    body: JSON.stringify({
+      subjects: INITIAL_SUBJECTS,
+      chapters: INITIAL_CHAPTERS,
+      questions: INITIAL_QUESTIONS
+    })
   });
 }

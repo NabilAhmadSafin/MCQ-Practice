@@ -11,7 +11,6 @@ import {
   BookOpen,
   Clock
 } from 'lucide-react';
-import { db } from '../db';
 import { getAllSubjects, getQuestionCountsBySubject } from '../services/subjectService';
 import { getSystemStatistics, type SystemStats, getRecentSessions } from '../services/attemptService';
 import type { Subject, PracticeSession } from '../types';

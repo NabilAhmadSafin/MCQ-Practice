@@ -10,9 +10,8 @@ import {
   Layers,
   ArrowRight
 } from 'lucide-react';
-import { getRecentPracticeSessions } from '../services/attemptService';
+import { getRecentPracticeSessions, clearPracticeSessions } from '../services/attemptService';
 import { getAllSubjects, getAllChapters } from '../services/subjectService';
-import { db } from '../db';
 import type { PracticeSession, Subject, Chapter } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
@@ -49,7 +48,7 @@ export const PracticeHistoryPage: React.FC<PracticeHistoryPageProps> = ({ onNavi
 
   const handleClearHistory = async () => {
     if (confirm('Are you sure you want to clear your practice session history? Attempt statistics will be reset.')) {
-      await db.sessions.clear();
+      await clearPracticeSessions();
       await loadData();
     }
   };

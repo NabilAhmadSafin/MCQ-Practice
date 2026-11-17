@@ -15,9 +15,9 @@ import {
 import { parseCodeInput } from '../utils/codeParser';
 import { parseDocxFile, parseTextToQuestions } from '../utils/docxParser';
 import { validateParsedQuestion } from '../utils/validator';
-import { db } from '../db';
 import { getAllSubjects, getAllChapters, createSubject, createChapter } from '../services/subjectService';
-import { createCommonInfo } from '../services/commonInfoService';
+import { createCommonInfo, findCommonInfoByContent } from '../services/commonInfoService';
+import { bulkPutQuestions, checkDuplicateQuestions } from '../services/questionService';
 import { RichContentRenderer } from '../components/common/RichContentRenderer';
 import type { ValidationItem, Subject, Chapter, Question } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
@@ -117,14 +117,12 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     const loadMeta = async () => {
-      const [subjs, chaps, qs] = await Promise.all([
+      const [subjs, chaps] = await Promise.all([
         getAllSubjects(),
-        getAllChapters(),
-        db.questions.toArray()
+        getAllChapters()
       ]);
       setSubjects(subjs);
       setChapters(chaps);
-      setExistingQuestions(new Set(qs.map(q => q.question.toLowerCase().trim())));
 
       if (subjs.length > 0) {
         setTargetSubject(subjs[0].name);
@@ -136,7 +134,7 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
   }, []);
 
   // Parse and Validate Code Input
-  const handleParseCode = () => {
+  const handleParseCode = async () => {
     setParseError(null);
     setInsertSuccessMsg(null);
     setIsParsing(true);
@@ -146,8 +144,12 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
       const defaultSubj = result.subject;
       const defaultChap = result.chapter;
 
+      const candidateTexts = result.questions.map(q => String(q?.question || q?.questionText || '')).filter(Boolean);
+      const duplicatesSet = await checkDuplicateQuestions(candidateTexts);
+      setExistingQuestions(duplicatesSet);
+
       const items: ValidationItem[] = result.questions.map((rawQ, idx) =>
-        validateParsedQuestion(rawQ, idx, defaultSubj, defaultChap, existingQuestions)
+        validateParsedQuestion(rawQ, idx, defaultSubj, defaultChap, duplicatesSet)
       );
 
       setValidationItems(items);
@@ -179,8 +181,12 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
         throw new Error('No questions could be identified from the document. Please check the document format.');
       }
 
+      const candidateTexts = rawQs.map(q => String(q?.question || q?.questionText || '')).filter(Boolean);
+      const duplicatesSet = await checkDuplicateQuestions(candidateTexts);
+      setExistingQuestions(duplicatesSet);
+
       const items: ValidationItem[] = rawQs.map((rawQ, idx) =>
-        validateParsedQuestion(rawQ, idx, targetSubject, targetChapter, existingQuestions)
+        validateParsedQuestion(rawQ, idx, targetSubject, targetChapter, duplicatesSet)
       );
 
       setValidationItems(items);
@@ -251,9 +257,7 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
             resolvedCommonInfoId = stemContentToId.get(stemContent);
           } else {
             // Check if identical passage already exists in DB
-            const existing = await db.commonInformation
-              .filter(ci => ci.content.trim() === stemContent)
-              .first();
+            const existing = await findCommonInfoByContent(stemContent);
             if (existing) {
               resolvedCommonInfoId = existing.id;
             } else {
@@ -309,7 +313,7 @@ export const ImportPage: React.FC<ImportPageProps> = ({ onNavigate }) => {
         });
       }
 
-      await db.questions.bulkPut(dbQuestions);
+      await bulkPutQuestions(dbQuestions);
 
       setInsertSuccessMsg(`Successfully imported ${dbQuestions.length} questions into your question bank!`);
       setValidationItems([]);

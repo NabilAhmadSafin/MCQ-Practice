@@ -1,128 +1,36 @@
+import { apiFetch } from '../services/apiClient';
 import { db } from '../db';
-import type { Question, Subject, Chapter, PracticeSession, Attempt } from '../types';
 
-export async function exportAllDataAsJson(): Promise<string> {
-  const subjects = await db.subjects.toArray();
-  const chapters = await db.chapters.toArray();
-  const questions = await db.questions.toArray();
-  const commonInformation = await db.commonInformation.toArray();
-  const attempts = await db.attempts.toArray();
-  const sessions = await db.sessions.toArray();
-
-  const exportPayload = {
-    app: 'Fast MCQ Practice',
-    version: '2.1',
-    exportedAt: new Date().toISOString(),
-    subjects,
-    chapters,
-    commonInformation,
-    questions,
-    attempts,
-    sessions
+export interface DatabaseStatus {
+  engine: string;
+  dbPath: string;
+  mediaDir: string;
+  dbSizeBytes: number;
+  mediaSizeBytes: number;
+  mediaCount: number;
+  counts: {
+    subjects: number;
+    chapters: number;
+    questions: number;
+    sessions: number;
+    attempts: number;
   };
-
-  return JSON.stringify(exportPayload, null, 2);
 }
 
-export async function exportQuestionsAsCsv(): Promise<string> {
-  const questions = await db.questions.toArray();
-  const subjects = await db.subjects.toArray();
-  const chapters = await db.chapters.toArray();
-
-  const subjMap = new Map(subjects.map(s => [s.id, s.name]));
-  const chapMap = new Map(chapters.map(c => [c.id, c.name]));
-
-  const escapeCsv = (str: string = '') => {
-    const s = String(str).replace(/"/g, '""');
-    return `"${s}"`;
-  };
-
-  const headers = [
-    'ID',
-    'Question Type',
-    'Subject',
-    'Chapter',
-    'Question',
-    'Statements',
-    'Common Info ID',
-    'Option A',
-    'Option B',
-    'Option C',
-    'Option D',
-    'Correct Answer',
-    'Explanation',
-    'Sources',
-    'Important',
-    'Very Important',
-    'Dont Understand'
-  ];
-
-  const rows = questions.map(q => {
-    const sourcesStr = (q.sources || [])
-      .map(s => `${s.type}: ${s.name}${s.entryNo ? ` [Entry: ${s.entryNo}]` : ''}`)
-      .join(' | ');
-
-    const statementsStr = (q.statements || []).join(' ;; ');
-
-    return [
-      escapeCsv(q.id),
-      escapeCsv(q.questionType || 'STANDARD'),
-      escapeCsv(subjMap.get(q.subjectId) || ''),
-      escapeCsv(chapMap.get(q.chapterId) || ''),
-      escapeCsv(q.question),
-      escapeCsv(statementsStr),
-      escapeCsv(q.commonInfoId || ''),
-      escapeCsv(q.options['A'] || ''),
-      escapeCsv(q.options['B'] || ''),
-      escapeCsv(q.options['C'] || ''),
-      escapeCsv(q.options['D'] || ''),
-      escapeCsv(q.correctAnswer),
-      escapeCsv(q.explanation || ''),
-      escapeCsv(sourcesStr),
-      escapeCsv(q.important ? 'TRUE' : 'FALSE'),
-      escapeCsv(q.veryImportant ? 'TRUE' : 'FALSE'),
-      escapeCsv(q.dontUnderstand ? 'TRUE' : 'FALSE')
-    ];
-  });
-
-  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-}
-
-function triggerDownload(content: string, filename: string, contentType: string) {
-  const blob = new Blob([content], { type: contentType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+export async function getDatabaseStatus(): Promise<DatabaseStatus> {
+  return apiFetch<DatabaseStatus>('/api/db/status');
 }
 
 export async function exportQuestionsJSON(): Promise<void> {
-  const json = await exportAllDataAsJson();
-  triggerDownload(json, `mcq-questions-backup-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
+  window.location.assign('/api/export/json');
 }
 
 export async function exportQuestionsCSV(): Promise<void> {
-  const csv = await exportQuestionsAsCsv();
-  triggerDownload(csv, `mcq-questions-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
+  window.location.assign('/api/export/csv');
 }
 
 export async function exportHistoryJSON(): Promise<void> {
-  const sessions = await db.sessions.toArray();
-  const attempts = await db.attempts.toArray();
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    sessions,
-    attempts
-  };
-  triggerDownload(
-    JSON.stringify(payload, null, 2),
-    `mcq-practice-history-${new Date().toISOString().slice(0, 10)}.json`,
-    'application/json'
-  );
+  window.location.assign('/api/export/history');
 }
 
 export async function importQuestionsJSON(jsonString: string): Promise<number> {
@@ -142,65 +50,100 @@ export async function importDataFromJson(jsonString: string): Promise<{
     throw new Error('Invalid JSON format: ' + e.message);
   }
 
-  const subjects: Subject[] = parsed.subjects || [];
-  const chapters: Chapter[] = parsed.chapters || [];
-  const questions: Question[] = parsed.questions || [];
-  const commonInformation = parsed.commonInformation || [];
-
-  if (!Array.isArray(questions)) {
-    throw new Error('JSON backup must contain a "questions" array');
-  }
-
-  await db.transaction('rw', [db.subjects, db.chapters, db.questions, db.commonInformation], async () => {
-    if (subjects.length > 0) {
-      for (const s of subjects) {
-        await db.subjects.put(s);
-      }
-    }
-    if (chapters.length > 0) {
-      for (const c of chapters) {
-        await db.chapters.put(c);
-      }
-    }
-    if (commonInformation.length > 0) {
-      for (const ci of commonInformation) {
-        await db.commonInformation.put(ci);
-      }
-    }
-    if (questions.length > 0) {
-      for (const q of questions) {
-        // Ensure sources exist and remove legacy tags/difficulty
-        if (!q.sources || !Array.isArray(q.sources)) {
-          q.sources = [];
-          if ((q as any).sourceType || (q as any).sourceName) {
-            q.sources.push({ type: (q as any).sourceType || 'Board', name: (q as any).sourceName || '' });
-          }
-        }
-        // Ensure default questionType
-        if (!q.questionType) {
-          q.questionType = 'STANDARD';
-        }
-        delete (q as any).difficulty;
-        delete (q as any).tags;
-        await db.questions.put(q);
-      }
-    }
+  return apiFetch('/api/import/json', {
+    method: 'POST',
+    body: JSON.stringify(parsed)
   });
-
-  return {
-    subjectsCount: subjects.length,
-    chaptersCount: chapters.length,
-    questionsCount: questions.length
-  };
 }
 
 export async function resetEntireDatabase(): Promise<void> {
-  await db.transaction('rw', [db.subjects, db.chapters, db.questions, db.commonInformation, db.attempts, db.sessions], async () => {
-    await db.subjects.clear();
-    await db.chapters.clear();
-    await db.questions.clear();
-    await db.commonInformation.clear();
-    await db.attempts.clear();
-    await db.sessions.clear();
+  await apiFetch('/api/db/reset', { method: 'POST' });
+}
+
+export async function getLegacyIndexedDbCounts(): Promise<{
+  hasData: boolean;
+  questions: number;
+  subjects: number;
+  mediaFiles: number;
+}> {
+  try {
+    if (typeof indexedDB === 'undefined') {
+      return { hasData: false, questions: 0, subjects: 0, mediaFiles: 0 };
+    }
+    if (typeof indexedDB.databases === 'function') {
+      const dbs = await indexedDB.databases();
+      const exists = dbs.some(d => d.name === 'MCQPracticeDB');
+      if (!exists) {
+        return { hasData: false, questions: 0, subjects: 0, mediaFiles: 0 };
+      }
+    }
+    const [questions, subjects, mediaFiles] = await Promise.all([
+      db.questions.count(),
+      db.subjects.count(),
+      db.mediaFiles.count()
+    ]);
+    return {
+      hasData: questions > 0 || subjects > 0 || mediaFiles > 0,
+      questions,
+      subjects,
+      mediaFiles
+    };
+  } catch {
+    return { hasData: false, questions: 0, subjects: 0, mediaFiles: 0 };
+  }
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read media blob'));
+    reader.onload = () => {
+      const res = String(reader.result || '');
+      const idx = res.indexOf(',');
+      resolve(idx >= 0 ? res.slice(idx + 1) : res);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function migrateLegacyIndexedDbToSqlite(): Promise<{
+  subjectsCount: number;
+  chaptersCount: number;
+  questionsCount: number;
+  mediaCount: number;
+}> {
+  const [subjects, chapters, commonInformation, questions, attempts, sessions, rawMedia] =
+    await Promise.all([
+      db.subjects.toArray(),
+      db.chapters.toArray(),
+      db.commonInformation.toArray(),
+      db.questions.toArray(),
+      db.attempts.toArray(),
+      db.sessions.toArray(),
+      db.mediaFiles.toArray()
+    ]);
+
+  const mediaFiles = await Promise.all(
+    rawMedia.map(async m => ({
+      id: m.id,
+      name: m.name,
+      mimeType: m.mimeType,
+      size: m.size,
+      createdAt: m.createdAt,
+      base64: await blobToBase64(m.data)
+    }))
+  );
+
+  return apiFetch('/api/import/json', {
+    method: 'POST',
+    body: JSON.stringify({
+      subjects,
+      chapters,
+      commonInformation,
+      questions,
+      attempts,
+      sessions,
+      mediaFiles
+    })
   });
 }

@@ -1,12 +1,23 @@
-import { db } from '../db';
+import { apiFetch } from './apiClient';
 import type { CommonInformation, Question, QuestionImage, ContentBlock } from '../types';
 
 export async function getCommonInfoById(id: string): Promise<CommonInformation | undefined> {
-  return await db.commonInformation.get(id);
+  try {
+    return await apiFetch<CommonInformation>(`/api/common-info/${encodeURIComponent(id)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getAllCommonInfo(): Promise<CommonInformation[]> {
-  return await db.commonInformation.orderBy('createdAt').reverse().toArray();
+  return apiFetch<CommonInformation[]>('/api/common-info');
+}
+
+export async function findCommonInfoByContent(content: string): Promise<CommonInformation | null> {
+  return apiFetch<CommonInformation | null>('/api/common-info/find-by-content', {
+    method: 'POST',
+    body: JSON.stringify({ content })
+  });
 }
 
 export async function createCommonInfo(data: {
@@ -17,66 +28,38 @@ export async function createCommonInfo(data: {
   subjectId: string;
   chapterId: string;
 }): Promise<CommonInformation> {
-  const newInfo: CommonInformation = {
-    id: 'ci_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
-    title: data.title.trim() || 'অভিন্ন তথ্য',
-    content: data.content.trim(),
-    images: data.images || [],
-    contentBlocks: data.contentBlocks,
-    subjectId: data.subjectId,
-    chapterId: data.chapterId,
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  };
-
-  await db.commonInformation.add(newInfo);
-  return newInfo;
+  return apiFetch<CommonInformation>('/api/common-info', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
 }
 
 export async function updateCommonInfo(
   id: string,
   data: Partial<Omit<CommonInformation, 'id' | 'createdAt'>>
 ): Promise<void> {
-  await db.commonInformation.update(id, {
-    ...data,
-    updatedAt: Date.now()
+  await apiFetch(`/api/common-info/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data)
   });
 }
 
 export async function deleteCommonInfo(id: string, deleteLinkedQuestions: boolean = false): Promise<void> {
-  await db.transaction('rw', [db.commonInformation, db.questions, db.attempts], async () => {
-    if (deleteLinkedQuestions) {
-      const linked = await db.questions.where('commonInfoId').equals(id).toArray();
-      const ids = linked.map(q => q.id);
-      if (ids.length > 0) {
-        await db.attempts.where('questionId').anyOf(ids).delete();
-        await db.questions.where('id').anyOf(ids).delete();
-      }
-    } else {
-      // Unlink questions and convert to standard if passage deleted
-      await db.questions.where('commonInfoId').equals(id).modify({
-        commonInfoId: undefined,
-        questionType: 'STANDARD',
-        updatedAt: Date.now()
-      });
-    }
-    await db.commonInformation.delete(id);
-  });
+  await apiFetch(
+    `/api/common-info/${encodeURIComponent(id)}?deleteLinkedQuestions=${deleteLinkedQuestions ? 'true' : 'false'}`,
+    { method: 'DELETE' }
+  );
 }
 
 export async function getQuestionsForCommonInfo(commonInfoId: string): Promise<Question[]> {
-  return await db.questions.where('commonInfoId').equals(commonInfoId).sortBy('createdAt');
+  return apiFetch<Question[]>(`/api/common-info/${encodeURIComponent(commonInfoId)}/questions`);
 }
 
 export async function getCommonInfoWithQuestions(id: string): Promise<{
   commonInfo: CommonInformation;
   questions: Question[];
 } | null> {
-  const info = await db.commonInformation.get(id);
-  if (!info) return null;
-  const questions = await getQuestionsForCommonInfo(id);
-  return {
-    commonInfo: info,
-    questions
-  };
+  return apiFetch<{ commonInfo: CommonInformation; questions: Question[] } | null>(
+    `/api/common-info/${encodeURIComponent(id)}/with-questions`
+  );
 }

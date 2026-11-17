@@ -13,7 +13,7 @@ import { WeakQuestionsPage } from './pages/WeakQuestionsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { ExportDataPage } from './pages/ExportDataPage';
 import { seedDatabaseIfEmpty } from './db/seed';
-import { db } from './db';
+import { getQuestionCount } from './services/questionService';
 
 export default function App() {
   const [currentSection, setCurrentSection] = useState<NavSection>('dashboard');
@@ -21,11 +21,11 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState<number>(0);
 
-  // Initialize and seed starter questions if IndexedDB is empty
+  // Initialize and seed starter questions if SQLite database is empty
   useEffect(() => {
     const init = async () => {
       await seedDatabaseIfEmpty();
-      const count = await db.questions.count();
+      const count = await getQuestionCount();
       setTotalQuestions(count);
     };
     init();
@@ -33,7 +33,7 @@ export default function App() {
 
   // Update total questions on section changes
   useEffect(() => {
-    db.questions.count().then(setTotalQuestions).catch(() => {});
+    getQuestionCount().then(setTotalQuestions).catch(() => {});
   }, [currentSection]);
 
   const handleNavigate = (section: NavSection, params: any = {}) => {
