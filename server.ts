@@ -968,70 +968,6 @@ async function startServer() {
     res.send(JSON.stringify(payload, null, 2));
   });
 
-  app.get('/api/export/csv', (_req, res) => {
-    const subjects = (sqlite.prepare('SELECT * FROM subjects').all() as any[]).map(mapRowToSubject);
-    const chapters = (sqlite.prepare('SELECT * FROM chapters').all() as any[]).map(mapRowToChapter);
-    const questions = (sqlite.prepare('SELECT * FROM questions').all() as any[]).map(mapRowToQuestion);
-
-    const subjMap = new Map(subjects.map(s => [s.id, s.name]));
-    const chapMap = new Map(chapters.map(c => [c.id, c.name]));
-
-    const escapeCsv = (str: string = '') => `"${String(str).replace(/"/g, '""')}"`;
-
-    const headers = [
-      'ID',
-      'Question Type',
-      'Subject',
-      'Chapter',
-      'Question',
-      'Statements',
-      'Common Info ID',
-      'Option A',
-      'Option B',
-      'Option C',
-      'Option D',
-      'Correct Answer',
-      'Explanation',
-      'Sources',
-      'Important',
-      'Very Important',
-      'Dont Understand'
-    ];
-
-    const rows = questions.map(q => {
-      const sourcesStr = (q.sources || [])
-        .map(s => `${s.type}: ${s.name}${s.entryNo ? ` [Entry: ${s.entryNo}]` : ''}`)
-        .join(' | ');
-      const statementsStr = (q.statements || []).join(' ;; ');
-
-      return [
-        escapeCsv(q.id),
-        escapeCsv(q.questionType || 'STANDARD'),
-        escapeCsv(subjMap.get(q.subjectId) || ''),
-        escapeCsv(chapMap.get(q.chapterId) || ''),
-        escapeCsv(q.question),
-        escapeCsv(statementsStr),
-        escapeCsv(q.commonInfoId || ''),
-        escapeCsv(q.options['A'] || ''),
-        escapeCsv(q.options['B'] || ''),
-        escapeCsv(q.options['C'] || ''),
-        escapeCsv(q.options['D'] || ''),
-        escapeCsv(q.correctAnswer),
-        escapeCsv(q.explanation || ''),
-        escapeCsv(sourcesStr),
-        escapeCsv(q.important ? 'TRUE' : 'FALSE'),
-        escapeCsv(q.veryImportant ? 'TRUE' : 'FALSE'),
-        escapeCsv(q.dontUnderstand ? 'TRUE' : 'FALSE')
-      ].join(',');
-    });
-
-    const csv = [headers.join(','), ...rows].join('\n');
-    const filename = `mcq-questions-${new Date().toISOString().slice(0, 10)}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(csv);
-  });
-
   app.get('/api/export/history', (_req, res) => {
     const sessions = (sqlite.prepare('SELECT * FROM sessions').all() as any[]).map(mapRowToSession);
     const attempts = (sqlite.prepare('SELECT * FROM attempts').all() as any[]).map(mapRowToAttempt);
@@ -1044,6 +980,122 @@ async function startServer() {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(JSON.stringify(payload, null, 2));
+  });
+
+  app.post('/api/import/history', (req, res) => {
+    try {
+      const parsed = req.body || {};
+      if (!Array.isArray(parsed.sessions) && !Array.isArray(parsed.attempts)) {
+        res.status(400).json({ error: 'History backup JSON must contain a "sessions" or "attempts" array' });
+        return;
+      }
+
+      const sessions: PracticeSession[] = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+      const attempts: Attempt[] = Array.isArray(parsed.attempts) ? parsed.attempts : [];
+
+      let sessionsCount = 0;
+      let attemptsCount = 0;
+
+      withTransaction(() => {
+        const insSess = sqlite.prepare(
+          `INSERT OR REPLACE INTO sessions (
+            id, mode, title, subject_id, chapter_id, total_questions, correct_count, wrong_count,
+            skipped_count, accuracy, total_time_seconds, duration_seconds, started_at, completed_at,
+            created_at, question_ids_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        );
+        for (const sess of sessions) {
+          if (!sess?.id) continue;
+          insSess.run(
+            sess.id,
+            sess.mode || 'instant',
+            sess.title ?? null,
+            sess.subjectId ?? null,
+            sess.chapterId ?? null,
+            Number(sess.totalQuestions ?? 0),
+            Number(sess.correctCount ?? 0),
+            Number(sess.wrongCount ?? 0),
+            Number(sess.skippedCount ?? 0),
+            Number(sess.accuracy ?? 0),
+            Number(sess.totalTimeSeconds ?? sess.durationSeconds ?? 0),
+            Number(sess.durationSeconds ?? sess.totalTimeSeconds ?? 0),
+            sess.startedAt ?? null,
+            sess.completedAt ?? null,
+            Number(sess.createdAt ?? Date.now()),
+            JSON.stringify(Array.isArray(sess.questionIds) ? sess.questionIds : [])
+          );
+          sessionsCount++;
+        }
+
+        const insAtt = sqlite.prepare(
+          `INSERT OR REPLACE INTO attempts (id, question_id, session_id, selected_answer, correct_answer, is_correct, time_spent_seconds, attempted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        );
+        for (const att of attempts) {
+          if (!att?.id || !att?.questionId) continue;
+          insAtt.run(
+            att.id,
+            att.questionId,
+            att.sessionId ?? null,
+            att.selectedAnswer ?? '',
+            att.correctAnswer ?? null,
+            att.isCorrect ? 1 : 0,
+            Number(att.timeSpentSeconds ?? 0),
+            Number(att.attemptedAt ?? Date.now())
+          );
+          attemptsCount++;
+        }
+      });
+
+      res.json({
+        sessionsCount,
+        attemptsCount
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/questions/clear-additional-data', (req, res) => {
+    try {
+      const clearAttempts = req.body?.clearAttempts !== false;
+      const clearSessions = Boolean(req.body?.clearSessions);
+      const clearFlags = Boolean(req.body?.clearFlags);
+
+      let deletedAttempts = 0;
+      let deletedSessions = 0;
+      let resetFlaggedQuestions = 0;
+
+      withTransaction(() => {
+        if (clearAttempts) {
+          const info = sqlite.prepare('DELETE FROM attempts').run();
+          deletedAttempts = Number(info.changes ?? 0);
+        }
+        if (clearSessions) {
+          const info = sqlite.prepare('DELETE FROM sessions').run();
+          deletedSessions = Number(info.changes ?? 0);
+        }
+        if (clearFlags) {
+          const info = sqlite
+            .prepare(
+              `UPDATE questions
+               SET important = 0, very_important = 0, dont_understand = 0, updated_at = ?
+               WHERE important != 0 OR very_important != 0 OR dont_understand != 0`
+            )
+            .run(Date.now());
+          resetFlaggedQuestions = Number(info.changes ?? 0);
+        }
+      });
+
+      res.json({
+        ok: true,
+        deletedAttempts,
+        deletedSessions,
+        resetFlaggedQuestions
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.post('/api/import/json', (req, res) => {

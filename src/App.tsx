@@ -6,7 +6,7 @@ import { SubjectsPage } from './pages/SubjectsPage';
 import { ChaptersPage } from './pages/ChaptersPage';
 import { QuestionBankPage } from './pages/QuestionBankPage';
 import { AddQuestionPage } from './pages/AddQuestionPage';
-import { ImportPage } from './pages/ImportPage';
+import { ImportExportPage } from './pages/ImportExportPage';
 import { PracticePage } from './pages/PracticePage';
 import { PracticeHistoryPage } from './pages/PracticeHistoryPage';
 import { WeakQuestionsPage } from './pages/WeakQuestionsPage';
@@ -44,7 +44,14 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 antialiased overflow-hidden">
+    <div className="lc-canvas relative flex h-screen text-[var(--lc-text)] antialiased overflow-hidden">
+      {/* Restrained atmospheric depth pools behind frosted glass panels */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-40 left-[22%] w-[540px] h-[540px] rounded-full bg-indigo-500/12 blur-[140px]" />
+        <div className="absolute top-[28%] -right-32 w-[420px] h-[420px] rounded-full bg-sky-400/8 blur-[130px]" />
+        <div className="absolute -bottom-44 left-[36%] w-[500px] h-[500px] rounded-full bg-violet-500/9 blur-[140px]" />
+      </div>
+
       {/* Sidebar Navigation */}
       <Sidebar
         currentSection={currentSection}
@@ -54,7 +61,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar
           currentSection={currentSection}
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
@@ -63,73 +70,81 @@ export default function App() {
         />
 
         <main className="flex-1 overflow-y-auto">
-          {currentSection === 'dashboard' && (
-            <DashboardPage onNavigate={handleNavigate} />
-          )}
+          <div key={currentSection} className="animate-lc-page">
+            {currentSection === 'dashboard' && (
+              <DashboardPage onNavigate={handleNavigate} />
+            )}
 
-          {currentSection === 'subjects' && (
-            <SubjectsPage onNavigate={handleNavigate} />
-          )}
+            {currentSection === 'subjects' && (
+              <SubjectsPage onNavigate={handleNavigate} />
+            )}
 
-          {currentSection === 'chapters' && (
-            <ChaptersPage
-              initialSubjectId={navParams?.subjectId}
-              onNavigate={handleNavigate}
-            />
-          )}
+            {currentSection === 'chapters' && (
+              <ChaptersPage
+                initialSubjectId={navParams?.subjectId}
+                onNavigate={handleNavigate}
+              />
+            )}
 
-          {currentSection === 'question-bank' && (
-            <QuestionBankPage
-              initialFilter={navParams?.filter}
-              onNavigate={handleNavigate}
-              onEditQuestion={id => handleNavigate('add-question', { editId: id })}
-            />
-          )}
+            {currentSection === 'question-bank' && (
+              <QuestionBankPage
+                initialFilter={navParams?.filter}
+                onNavigate={handleNavigate}
+                onEditQuestion={id => handleNavigate('add-question', { editId: id })}
+              />
+            )}
 
-          {currentSection === 'add-question' && (
-            <AddQuestionPage
-              editId={navParams?.editId}
-              onNavigate={handleNavigate}
-            />
-          )}
+            {currentSection === 'add-question' && (
+              <AddQuestionPage
+                editId={navParams?.editId}
+                onNavigate={handleNavigate}
+              />
+            )}
 
-          {currentSection === 'import-questions' && (
-            <ImportPage onNavigate={handleNavigate} />
-          )}
+            {currentSection === 'import-export' && (
+              <ImportExportPage
+                onNavigate={handleNavigate}
+                onDataChanged={() => getQuestionCount().then(setTotalQuestions).catch(() => {})}
+              />
+            )}
 
-          {currentSection === 'practice' && (
-            <PracticePage
-              initialSubjectId={navParams?.subjectId}
-              initialChapterId={navParams?.chapterId}
-              initialQuestionId={navParams?.questionId}
-              initialMode={navParams?.initialMode}
-              onNavigate={handleNavigate}
-            />
-          )}
+            {currentSection === 'practice' && (
+              <PracticePage
+                initialSubjectId={navParams?.subjectId}
+                initialChapterId={navParams?.chapterId}
+                initialQuestionId={navParams?.questionId}
+                initialMode={navParams?.initialMode}
+                onNavigate={handleNavigate}
+              />
+            )}
 
-          {currentSection === 'practice-history' && (
-            <PracticeHistoryPage onNavigate={handleNavigate} />
-          )}
+            {currentSection === 'practice-history' && (
+              <PracticeHistoryPage onNavigate={handleNavigate} />
+            )}
 
-          {currentSection === 'wrong-questions' && (
-            <WeakQuestionsPage onNavigate={handleNavigate} />
-          )}
+            {currentSection === 'wrong-questions' && (
+              <WeakQuestionsPage onNavigate={handleNavigate} />
+            )}
 
-          {currentSection === 'important-questions' && (
-            <QuestionBankPage
-              initialFilter={{ important: true }}
-              onNavigate={handleNavigate}
-              onEditQuestion={id => handleNavigate('add-question', { editId: id })}
-            />
-          )}
+            {currentSection === 'important-questions' && (
+              <QuestionBankPage
+                initialFilter={{ important: true }}
+                onNavigate={handleNavigate}
+                onEditQuestion={id => handleNavigate('add-question', { editId: id })}
+              />
+            )}
 
-          {currentSection === 'statistics' && (
-            <StatisticsPage onNavigate={handleNavigate} />
-          )}
+            {currentSection === 'statistics' && (
+              <StatisticsPage onNavigate={handleNavigate} />
+            )}
 
-          {currentSection === 'settings' && (
-            <ExportDataPage onNavigate={handleNavigate} />
-          )}
+            {currentSection === 'settings' && (
+              <ExportDataPage
+                onNavigate={handleNavigate}
+                onDataChanged={() => getQuestionCount().then(setTotalQuestions).catch(() => {})}
+              />
+            )}
+          </div>
         </main>
       </div>
     </div>

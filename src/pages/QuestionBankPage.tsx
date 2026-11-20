@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Filter,
-  Plus,
   Trash2,
   Edit,
   Play,
@@ -38,9 +37,11 @@ import { RichContentRenderer } from '../components/common/RichContentRenderer';
 import { ImageLightbox } from '../components/common/ImageLightbox';
 import type { Question, QuestionFilter, Subject, Chapter, QuestionStats, QuestionType, CommonInformation } from '../types';
 import { GUIDE_OPTIONS, QUESTION_TYPE_LABELS } from '../types';
+import { AddQuestionPage } from './AddQuestionPage';
+import type { NavSection } from '../components/layout/Sidebar';
 
 interface QuestionBankPageProps {
-  onNavigate: (page: string, params?: any) => void;
+  onNavigate: (page: NavSection, params?: any) => void;
   onEditQuestion?: (questionId: string) => void;
   onStartPracticeWithFilter?: (filterParams: any) => void;
   initialFilter?: Partial<QuestionFilter>;
@@ -91,6 +92,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
   const [searchInput, setSearchInput] = useState(filter.searchQuery || '');
   const [showFilters, setShowFilters] = useState(false);
   const [commonInfoMap, setCommonInfoMap] = useState<Record<string, CommonInformation>>({});
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   // Selection & Bulk
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -147,6 +149,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
         getQuestionsPaginated(filter, currentPage, pageSize),
         getQuestionStatsMap()
       ]);
+
       setQuestions(res.items);
       setTotalQuestions(res.total);
       setTotalPages(res.totalPages);
@@ -346,18 +349,37 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
     }
   };
 
+  if (editingQuestionId) {
+    return (
+      <div className="p-5 sm:p-7 lg:p-8 max-w-7xl mx-auto">
+        <AddQuestionPage
+          editId={editingQuestionId}
+          onNavigate={(page, params) => {
+            if (page === 'question-bank') {
+              setEditingQuestionId(null);
+              loadQuestions();
+            } else {
+              setEditingQuestionId(null);
+              onNavigate(page, params);
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="p-5 sm:p-7 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--lc-text)] flex items-baseline gap-2.5">
             <span>Question Bank</span>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+            <span className="text-sm font-medium text-indigo-300 tabular-nums">
               {totalQuestions} total
             </span>
           </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+          <p className="text-[13px] text-[var(--lc-text-secondary)] mt-1">
             Browse, multi-filter, search, and manage your personal question repository.
           </p>
         </div>
@@ -367,43 +389,75 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             <button
               id="practice-these-btn"
               onClick={() => onStartPracticeWithFilter(filter)}
-              className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
+              className="lc-btn-primary flex items-center gap-2 px-4 py-2 text-xs tabular-nums"
             >
-              <Play className="w-3.5 h-3.5 fill-white" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               <span>Practice Filtered ({totalQuestions})</span>
             </button>
           )}
-
-          <button
-            id="add-question-top-btn"
-            onClick={() => onNavigate('add-question')}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Question</span>
-          </button>
         </div>
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 space-y-4 shadow-sm">
+      <div className="lc-card p-4 sm:p-5 space-y-4">
+        {/* Quick Subject Switcher */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-xs font-medium text-[var(--lc-text-muted)] shrink-0">
+            Subject:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFilter(prev => ({ ...prev, subjectId: '', chapterId: '' }));
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-[8px] text-xs font-semibold shrink-0 transition whitespace-nowrap border ${
+              !filter.subjectId
+                ? 'bg-indigo-500/22 text-[var(--lc-text)] border-indigo-400/35'
+                : 'bg-white/[0.04] text-[var(--lc-text-secondary)] hover:text-[var(--lc-text)] border-[var(--lc-border)]'
+            }`}
+          >
+            All Subjects
+          </button>
+          {subjects.map(s => {
+            const active = filter.subjectId === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setFilter(prev => ({ ...prev, subjectId: s.id, chapterId: '' }));
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-[8px] text-xs font-semibold shrink-0 transition whitespace-nowrap border ${
+                  active
+                    ? 'bg-indigo-500/22 text-[var(--lc-text)] border-indigo-400/35'
+                    : 'bg-white/[0.04] text-[var(--lc-text-secondary)] hover:text-[var(--lc-text)] border-[var(--lc-border)]'
+                }`}
+              >
+                {s.name}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Top search & toggle row */}
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[var(--lc-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               id="bank-search-input"
               type="text"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder="Search in question text, options, explanation, or source name..."
-              className="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 pl-9 pr-8 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              className="lc-input w-full text-xs pl-9 pr-8 py-2"
             />
             {searchInput && (
               <button
                 type="button"
                 onClick={() => setSearchInput('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xs"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--lc-text-muted)] hover:text-[var(--lc-text)] text-xs"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -414,24 +468,21 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             <button
               id="toggle-filters-btn"
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border transition ${
+              className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-[10px] border transition whitespace-nowrap ${
                 showFilters || hasActiveFilters
-                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300'
-                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  ? 'border-[var(--lc-accent-border)] bg-[var(--lc-accent-soft)] text-[var(--lc-accent)]'
+                  : 'border-[var(--lc-border)] bg-[var(--lc-surface)] text-[var(--lc-text-secondary)] hover:text-[var(--lc-text)]'
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Filters</span>
-              {hasActiveFilters && (
-                <span className="w-2 h-2 rounded-full bg-indigo-600" />
-              )}
             </button>
 
             {hasActiveFilters && (
               <button
                 id="clear-filters-btn"
                 onClick={handleClearFilters}
-                className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition"
+                className="lc-btn-ghost flex items-center gap-1 px-3 py-2 text-xs"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset</span>
@@ -444,10 +495,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               onChange={e =>
                 setFilter(prev => ({ ...prev, sortBy: e.target.value as any }))
               }
-              className={`text-xs rounded-lg border py-2 px-2.5 transition focus:outline-indigo-500 font-medium ${
+              className={`lc-select text-xs py-2 px-2.5 font-medium ${
                 filter.sortBy === 'entryNoAsc' || filter.sortBy === 'entryNoDesc'
-                  ? 'border-purple-400 bg-purple-50 text-purple-900 dark:border-purple-600 dark:bg-purple-950/40 dark:text-purple-200 shadow-xs'
-                  : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
+                  ? 'border-[var(--lc-accent-border)] text-[var(--lc-accent)]'
+                  : ''
               }`}
             >
               {hasSpecificGuide && (
@@ -475,11 +526,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
 
         {/* EXPANDABLE MULTI-OPTION FILTER PANEL */}
         {showFilters && (
-          <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-4 animate-in fade-in">
-            {/* Subject & Chapter Row */}
+          <div className="pt-4 border-t border-[var(--lc-divider)] space-y-4 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
                   Subject
                 </label>
                 <select
@@ -493,7 +543,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                     }));
                     setCurrentPage(1);
                   }}
-                  className="w-full text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-2 text-zinc-800 dark:text-zinc-200"
+                  className="lc-select w-full text-xs p-2"
                 >
                   <option value="">All Subjects</option>
                   {subjects.map(s => (
@@ -505,7 +555,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
                   Chapter
                 </label>
                 <select
@@ -516,7 +566,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                     setCurrentPage(1);
                   }}
                   disabled={!filter.subjectId || chapters.length === 0}
-                  className="w-full text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-2 text-zinc-800 dark:text-zinc-200 disabled:opacity-50"
+                  className="lc-select w-full text-xs p-2 disabled:opacity-50"
                 >
                   <option value="">All Chapters</option>
                   {chapters.map(c => (
@@ -528,8 +578,8 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">
-                  Search Source Name
+                <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
+                  Search source name
                 </label>
                 <input
                   type="text"
@@ -540,7 +590,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                     setCurrentPage(1);
                   }}
                   placeholder="e.g. Dhaka Board or Notre Dame"
-                  className="w-full text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-2 text-zinc-800 dark:text-zinc-200"
+                  className="lc-input w-full text-xs p-2"
                 />
                 <datalist id="bankSourceNameList">
                   {availableSourceNames.map(s => (
@@ -550,17 +600,17 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               </div>
             </div>
 
-            {/* Question Type Filter Section (Multiple Choice) */}
+            {/* Question Type Filter */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Question Type / প্রশ্নের ধরন (Choose Multiple)
+                <label className="text-xs font-medium text-[var(--lc-text-secondary)]">
+                  Question type / প্রশ্নের ধরন (multi-select)
                 </label>
                 {(filter.questionTypes && filter.questionTypes.length > 0) && (
                   <button
                     type="button"
                     onClick={() => setFilter(prev => ({ ...prev, questionTypes: [] }))}
-                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="text-[11px] font-medium text-[var(--lc-accent)] hover:underline"
                   >
                     Clear question types
                   </button>
@@ -578,10 +628,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                       key={t.type}
                       type="button"
                       onClick={() => toggleQuestionTypeFilter(t.type)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[8px] text-xs font-semibold border transition whitespace-nowrap ${
                         isChecked
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                          ? 'bg-[var(--lc-accent)] text-white border-[var(--lc-accent)]'
+                          : 'bg-white/[0.04] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:text-[var(--lc-text)]'
                       }`}
                     >
                       <span>{t.label}</span>
@@ -591,17 +641,17 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               </div>
             </div>
 
-            {/* Source Type Filter Section (Multiple Choice) */}
+            {/* Source Type Filter */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Source Type (Choose Multiple)
+                <label className="text-xs font-medium text-[var(--lc-text-secondary)]">
+                  Source type (multi-select)
                 </label>
                 {(filter.sourceTypes && filter.sourceTypes.length > 0) && (
                   <button
                     type="button"
                     onClick={() => setFilter(prev => ({ ...prev, sourceTypes: [] }))}
-                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="text-[11px] font-medium text-[var(--lc-accent)] hover:underline"
                   >
                     Clear source types
                   </button>
@@ -615,10 +665,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                       key={st}
                       type="button"
                       onClick={() => toggleSourceTypeFilter(st)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[8px] text-xs font-semibold border transition whitespace-nowrap ${
                         isChecked
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                          ? 'bg-[var(--lc-accent)] text-white border-[var(--lc-accent)]'
+                          : 'bg-white/[0.04] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:text-[var(--lc-text)]'
                       }`}
                     >
                       <span>{st}</span>
@@ -628,11 +678,11 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               </div>
             </div>
 
-            {/* Guide Filter Section (Multiple Choice: panjre, lecture, royal, chorcha, eprosnobank) */}
+            {/* Guide Filter */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Guide (Choose Multiple)
+                <label className="text-xs font-medium text-[var(--lc-text-secondary)]">
+                  Guide (multi-select)
                 </label>
                 {(filter.guides && filter.guides.length > 0) && (
                   <button
@@ -647,7 +697,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                             : prev.sortBy
                       }))
                     }
-                    className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline"
+                    className="text-[11px] font-medium text-[var(--lc-accent)] hover:underline"
                   >
                     Clear guides
                   </button>
@@ -661,10 +711,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                       key={g}
                       type="button"
                       onClick={() => toggleGuideFilter(g)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[8px] text-xs font-semibold border transition whitespace-nowrap ${
                         isChecked
-                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                          ? 'bg-[var(--lc-accent)] text-white border-[var(--lc-accent)]'
+                          : 'bg-white/[0.04] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:text-[var(--lc-text)]'
                       }`}
                     >
                       <span>{g}</span>
@@ -673,15 +723,11 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                 })}
               </div>
 
-              {/* Status note when a specific guide is selected */}
               {hasSpecificGuide && (
-                <div className="mt-2 flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
-                    <span>
-                      Questions sorted by <strong className="font-semibold">{specificGuideName}</strong> Entry No.
-                    </span>
-                  </div>
+                <div className="mt-2.5 flex items-center justify-between gap-2 px-3 py-2 rounded-[10px] bg-[var(--lc-accent-soft)] border border-[var(--lc-accent-border)] text-xs text-[var(--lc-text)]">
+                  <span>
+                    Questions sorted by <strong className="font-semibold text-indigo-300">{specificGuideName}</strong> Entry No.
+                  </span>
                   <button
                     type="button"
                     onClick={() =>
@@ -690,7 +736,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                         sortBy: prev.sortBy === 'entryNoDesc' ? 'entryNoAsc' : 'entryNoDesc'
                       }))
                     }
-                    className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 hover:underline inline-flex items-center gap-1"
+                    className="text-xs font-semibold text-indigo-300 hover:underline tabular-nums"
                   >
                     {filter.sortBy === 'entryNoDesc' ? 'Sort 1 → 999' : 'Sort 999 → 1'}
                   </button>
@@ -698,17 +744,17 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               )}
             </div>
 
-            {/* Practice Status Filter Section (Multiple Choice) */}
+            {/* Practice Status Filter */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Practice Status (Choose Multiple)
+                <label className="text-xs font-medium text-[var(--lc-text-secondary)]">
+                  Practice status (multi-select)
                 </label>
                 {(filter.attemptStatuses && filter.attemptStatuses.length > 0) && (
                   <button
                     type="button"
                     onClick={() => setFilter(prev => ({ ...prev, attemptStatuses: [] }))}
-                    className="text-[10px] text-zinc-500 hover:underline"
+                    className="text-[11px] text-[var(--lc-accent)] hover:underline"
                   >
                     Clear status
                   </button>
@@ -722,10 +768,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                       key={opt.id}
                       type="button"
                       onClick={() => toggleStatusFilter(opt.id as any)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[8px] text-xs font-semibold border transition whitespace-nowrap ${
                         isChecked
-                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100'
-                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                          ? 'bg-[var(--lc-accent)] text-white border-[var(--lc-accent)]'
+                          : 'bg-white/[0.04] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:text-[var(--lc-text)]'
                       }`}
                     >
                       <span>{opt.label}</span>
@@ -735,17 +781,17 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               </div>
             </div>
 
-            {/* Flags Filter Section (Multiple Choice) */}
+            {/* Flags Filter */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Flags (Choose Multiple)
+                <label className="text-xs font-medium text-[var(--lc-text-secondary)]">
+                  Flags (multi-select)
                 </label>
                 {(filter.flags && filter.flags.length > 0) && (
                   <button
                     type="button"
                     onClick={() => setFilter(prev => ({ ...prev, flags: [] }))}
-                    className="text-[10px] text-zinc-500 hover:underline"
+                    className="text-[11px] text-[var(--lc-accent)] hover:underline"
                   >
                     Clear flags
                   </button>
@@ -753,9 +799,9 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {[
-                  { id: 'important', label: 'Important', icon: Bookmark, activeBg: 'bg-amber-500 text-white border-amber-500' },
-                  { id: 'veryImportant', label: 'Very Important', icon: Flame, activeBg: 'bg-rose-500 text-white border-rose-500' },
-                  { id: 'dontUnderstand', label: "Don't Understand", icon: HelpCircle, activeBg: 'bg-purple-600 text-white border-purple-600' }
+                  { id: 'important', label: 'Important', icon: Bookmark, activeClass: 'bg-[var(--lc-warning-soft)] text-[var(--lc-warning)] border-[var(--lc-warning)]/40' },
+                  { id: 'veryImportant', label: 'Very Important', icon: Flame, activeClass: 'bg-[var(--lc-error-soft)] text-[var(--lc-error)] border-[var(--lc-error)]/40' },
+                  { id: 'dontUnderstand', label: "Don't Understand", icon: HelpCircle, activeClass: 'bg-[var(--lc-accent-soft)] text-indigo-300 border-[var(--lc-accent-border)]' }
                 ].map(flagItem => {
                   const isChecked = (filter.flags || []).includes(flagItem.id as any);
                   const Icon = flagItem.icon;
@@ -764,10 +810,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                       key={flagItem.id}
                       type="button"
                       onClick={() => toggleFlagFilter(flagItem.id as any)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[8px] text-xs font-semibold border transition whitespace-nowrap ${
                         isChecked
-                          ? flagItem.activeBg
-                          : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
+                          ? flagItem.activeClass
+                          : 'bg-white/[0.04] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:text-[var(--lc-text)]'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
@@ -780,17 +826,17 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
           </div>
         )}
 
-        {/* Active Filter Pills Bar */}
+        {/* Active Filter Tags Bar (8px controls) */}
         {hasActiveFilters && (
-          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-zinc-100 dark:border-zinc-800/60 text-xs">
-            <span className="text-zinc-400 text-[11px] font-medium">Active:</span>
+          <div className="flex items-center gap-2 flex-wrap pt-2.5 border-t border-[var(--lc-border)] text-xs">
+            <span className="text-[var(--lc-text-muted)] text-[11px] font-medium">Active:</span>
 
             {filter.subjectId && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+              <span className="lc-badge inline-flex items-center gap-1 px-2.5 py-0.5 bg-[var(--lc-surface-subtle)] border border-[var(--lc-border)] text-[var(--lc-text)]">
                 Subject: {allSubjectsMap.get(filter.subjectId)?.name || 'Selected'}
                 <button
                   onClick={() => setFilter(prev => ({ ...prev, subjectId: '', chapterId: '' }))}
-                  className="hover:text-rose-500"
+                  className="hover:text-[var(--lc-error)] ml-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -798,11 +844,11 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             )}
 
             {filter.chapterId && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+              <span className="lc-badge inline-flex items-center gap-1 px-2.5 py-0.5 bg-[var(--lc-surface-subtle)] border border-[var(--lc-border)] text-[var(--lc-text)]">
                 Chapter: {allChaptersMap.get(filter.chapterId)?.name || 'Selected'}
                 <button
                   onClick={() => setFilter(prev => ({ ...prev, chapterId: '' }))}
-                  className="hover:text-rose-500"
+                  className="hover:text-[var(--lc-error)] ml-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -812,10 +858,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             {filter.sourceTypes?.map(st => (
               <span
                 key={st}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                className="lc-badge inline-flex items-center gap-1 px-2.5 py-0.5 bg-[var(--lc-accent-soft)] text-[var(--lc-accent)]"
               >
                 Type: {st}
-                <button onClick={() => toggleSourceTypeFilter(st)} className="hover:text-rose-500">
+                <button onClick={() => toggleSourceTypeFilter(st)} className="hover:text-[var(--lc-error)] ml-0.5">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -824,10 +870,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             {filter.guides?.map(g => (
               <span
                 key={g}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
+                className="lc-badge inline-flex items-center gap-1 px-2.5 py-0.5 bg-[var(--lc-accent-soft)] text-[var(--lc-accent)]"
               >
                 Guide: {g}
-                <button onClick={() => toggleGuideFilter(g)} className="hover:text-rose-500">
+                <button onClick={() => toggleGuideFilter(g)} className="hover:text-[var(--lc-error)] ml-0.5">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -836,10 +882,10 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             {filter.attemptStatuses?.map(st => (
               <span
                 key={st}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200"
+                className="lc-badge inline-flex items-center gap-1 px-2.5 py-0.5 bg-[var(--lc-surface-subtle)] border border-[var(--lc-border)] text-[var(--lc-text)]"
               >
                 Status: {st}
-                <button onClick={() => toggleStatusFilter(st)} className="hover:text-rose-500">
+                <button onClick={() => toggleStatusFilter(st)} className="hover:text-[var(--lc-error)] ml-0.5">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -848,21 +894,21 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             {filter.flags?.map(f => (
               <span
                 key={f}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                className="lc-badge inline-flex items-center gap-1 px-2.5 py-0.5 bg-[var(--lc-warning-soft)] text-[var(--lc-warning)]"
               >
                 Flag: {f}
-                <button onClick={() => toggleFlagFilter(f)} className="hover:text-rose-500">
+                <button onClick={() => toggleFlagFilter(f)} className="hover:text-[var(--lc-error)] ml-0.5">
                   <X className="w-3 h-3" />
                 </button>
               </span>
             ))}
 
             {filter.sourceName && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                Source text: &quot;{filter.sourceName}&quot;
+              <span className="lc-badge inline-flex items-center gap-1 px-2.5 py-0.5 bg-[var(--lc-surface-subtle)] border border-[var(--lc-border)] text-[var(--lc-text)]">
+                Source: &quot;{filter.sourceName}&quot;
                 <button
                   onClick={() => setFilter(prev => ({ ...prev, sourceName: '' }))}
-                  className="hover:text-rose-500"
+                  className="hover:text-[var(--lc-error)] ml-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -872,15 +918,15 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
         )}
       </div>
 
-      {/* Bulk Action Bar (appears when items are selected) */}
+      {/* Floating Frosted Bulk Action Dock */}
       {selectedIds.size > 0 && (
-        <div className="bg-indigo-900 text-white rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm animate-in fade-in">
+        <div className="lc-glass rounded-[14px] px-4 py-3 flex flex-wrap items-center justify-between gap-3 animate-fadeIn sticky top-18 z-20">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold bg-white text-indigo-950 px-2.5 py-0.5 rounded-full">
+            <span className="lc-badge text-xs px-2.5 py-1 bg-[var(--lc-accent)] text-white tabular-nums">
               {selectedIds.size} Selected
             </span>
-            <span className="text-xs text-indigo-200 hidden sm:inline">
-              Choose an action for selected questions:
+            <span className="text-xs text-[var(--lc-text-secondary)] hidden sm:inline">
+              Bulk actions for selected questions:
             </span>
           </div>
 
@@ -888,35 +934,35 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             <button
               type="button"
               onClick={() => handleExecuteBulkAction('set_important')}
-              className="px-2.5 py-1 text-xs rounded-lg bg-indigo-800 hover:bg-indigo-700 text-indigo-100 transition"
+              className="lc-btn-secondary px-2.5 py-1.5 text-xs"
             >
-              ⭐ Mark Important
+              Mark Important
             </button>
             <button
               type="button"
               onClick={() => handleExecuteBulkAction('set_veryImportant')}
-              className="px-2.5 py-1 text-xs rounded-lg bg-indigo-800 hover:bg-indigo-700 text-indigo-100 transition"
+              className="lc-btn-secondary px-2.5 py-1.5 text-xs"
             >
-              🔥 Mark Very Important
+              Mark Very Important
             </button>
             <button
               type="button"
               onClick={() => handleExecuteBulkAction('set_dontUnderstand')}
-              className="px-2.5 py-1 text-xs rounded-lg bg-indigo-800 hover:bg-indigo-700 text-indigo-100 transition"
+              className="lc-btn-secondary px-2.5 py-1.5 text-xs"
             >
-              ❓ Mark Don&apos;t Understand
+              Mark Don&apos;t Understand
             </button>
             <button
               type="button"
               onClick={() => setBulkActionModal('subject')}
-              className="px-2.5 py-1 text-xs rounded-lg bg-indigo-800 hover:bg-indigo-700 text-indigo-100 transition"
+              className="lc-btn-secondary px-2.5 py-1.5 text-xs"
             >
               Move Subject / Chapter
             </button>
             <button
               type="button"
               onClick={() => setIsBulkDeleteModalOpen(true)}
-              className="px-2.5 py-1 text-xs rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium transition"
+              className="lc-btn-danger px-3 py-1.5 text-xs"
             >
               Delete Selected
             </button>
@@ -925,38 +971,38 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
       )}
 
       {/* Questions Table / List View */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+      <div className="lc-card overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-sm text-zinc-500">
-            <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2" />
+          <div className="p-12 text-center text-sm text-[var(--lc-text-secondary)]">
+            <div className="inline-block w-6 h-6 border-2 border-[var(--lc-accent)] border-t-transparent rounded-full animate-spin mb-2" />
             <p>Loading questions...</p>
           </div>
         ) : questions.length === 0 ? (
           <div className="p-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-zinc-400">
+            <div className="w-12 h-12 rounded-[14px] bg-[var(--lc-surface-subtle)] border border-[var(--lc-border)] flex items-center justify-center mx-auto text-[var(--lc-text-muted)]">
               <Search className="w-6 h-6" />
             </div>
-            <h3 className="font-semibold text-zinc-800 dark:text-zinc-200 text-base">
+            <h3 className="font-semibold text-[var(--lc-text)] text-base">
               No questions found
             </h3>
-            <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+            <p className="text-xs text-[var(--lc-text-secondary)] max-w-sm mx-auto">
               {hasActiveFilters
                 ? 'No questions matched your search or filter combination. Try resetting filters.'
-                : 'Your question bank is empty. Add new questions or import via Code/DOCX.'}
+                : 'Your question bank is empty. Import questions via Code or JSON.'}
             </p>
             {hasActiveFilters ? (
               <button
                 onClick={handleClearFilters}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
+                className="lc-btn-secondary px-4 py-2 text-xs"
               >
                 Clear all filters
               </button>
             ) : (
               <button
-                onClick={() => onNavigate('add-question')}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={() => onNavigate('import-export', { tab: 'code' })}
+                className="lc-btn-primary px-4 py-2 text-xs"
               >
-                Add Your First Question
+                Import Questions
               </button>
             )}
           </div>
@@ -964,26 +1010,26 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                <tr className="border-b border-[var(--lc-divider)] bg-white/[0.025] text-xs font-medium text-[var(--lc-text-secondary)]">
                   <th className="py-3 px-4 w-10 text-center">
                     <button
                       type="button"
                       onClick={handleToggleSelectAll}
-                      className="text-zinc-400 hover:text-zinc-600"
+                      className="text-[var(--lc-text-muted)] hover:text-[var(--lc-text)]"
                     >
                       {selectedIds.size === questions.length && questions.length > 0 ? (
-                        <CheckSquare className="w-4 h-4 text-indigo-600" />
+                        <CheckSquare className="w-4 h-4 text-[var(--lc-accent)]" />
                       ) : (
                         <Square className="w-4 h-4" />
                       )}
                     </button>
                   </th>
-                  <th className="py-3 px-4">Question Prompt</th>
+                  <th className="py-3 px-4">Question prompt</th>
                   <th className="py-3 px-4 w-36">Subject / Chapter</th>
                   <th className="py-3 px-4 w-16 text-center">Answer</th>
                   <th className="py-3 px-4 w-48">
                     {hasSpecificGuide ? (
-                      <span className="text-purple-700 dark:text-purple-300 font-bold inline-flex items-center gap-1">
+                      <span className="text-indigo-300 font-semibold inline-flex items-center gap-1 tabular-nums">
                         Sources ({specificGuideName} #{filter.sortBy === 'entryNoDesc' ? '↓' : '↑'})
                       </span>
                     ) : (
@@ -994,7 +1040,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                   <th className="py-3 px-4 w-24 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-sm">
+              <tbody className="divide-y divide-[var(--lc-border)] text-sm">
                 {questions.map(q => {
                   const isSelected = selectedIds.has(q.id);
                   const isExpanded = expandedId === q.id;
@@ -1002,7 +1048,6 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                   const chapterName = allChaptersMap.get(q.chapterId)?.name || 'Chapter';
                   const stat = statsMap.get(q.id);
 
-                  // Extract sources cleanly and sort selected guide to the front
                   const rawSources =
                     q.sources && q.sources.length > 0
                       ? q.sources
@@ -1025,62 +1070,55 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                   return (
                     <React.Fragment key={q.id}>
                       <tr
-                        className={`hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50 transition-colors ${
-                          isSelected ? 'bg-indigo-50/30 dark:bg-indigo-950/20' : ''
+                        className={`hover:bg-[var(--lc-surface-subtle)] transition-colors ${
+                          isSelected ? 'bg-[var(--lc-accent-soft)]' : ''
                         }`}
                       >
-                        {/* Checkbox */}
                         <td className="py-3 px-4 text-center">
                           <button
                             type="button"
                             onClick={() => handleToggleSelect(q.id)}
-                            className="text-zinc-400 hover:text-zinc-600"
+                            className="text-[var(--lc-text-muted)] hover:text-[var(--lc-text)]"
                           >
                             {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-indigo-600" />
+                              <CheckSquare className="w-4 h-4 text-[var(--lc-accent)]" />
                             ) : (
                               <Square className="w-4 h-4" />
                             )}
                           </button>
                         </td>
 
-                        {/* Question Text */}
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <div
                             onClick={() => setExpandedId(isExpanded ? null : q.id)}
                             className="cursor-pointer group"
                           >
-                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                              <span
-                                className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                  q.questionType === 'MULTIPLE_STATEMENT'
-                                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                                    : q.questionType === 'COMMON_STEM'
-                                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
-                                }`}
-                              >
+                            <div className="flex items-center gap-1.5 mb-1 flex-wrap text-[11px] text-[var(--lc-text-muted)]">
+                              <span className="font-medium text-indigo-300">
                                 {QUESTION_TYPE_LABELS[q.questionType || 'STANDARD']}
                               </span>
                               {q.commonInfoId && commonInfoMap[q.commonInfoId]?.title && (
-                                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium truncate max-w-xs">
-                                  [{commonInfoMap[q.commonInfoId].title}]
-                                </span>
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span className="text-[var(--lc-text-secondary)] font-medium truncate max-w-xs">
+                                    {commonInfoMap[q.commonInfoId].title}
+                                  </span>
+                                </>
                               )}
                             </div>
 
-                            <div className="font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                            <div className="font-medium text-[var(--lc-text)] line-clamp-2 group-hover:text-indigo-300 transition-colors">
                               {q.question}
                             </div>
                             {stat && stat.totalAttempts > 0 && (
-                              <div className="text-[11px] text-zinc-400 mt-1 flex items-center gap-2">
+                              <div className="text-[11px] text-[var(--lc-text-muted)] mt-1 flex items-center gap-2 tabular-nums">
                                 <span>{stat.totalAttempts} attempts</span>
-                                <span>•</span>
+                                <span aria-hidden="true">·</span>
                                 <span
                                   className={
                                     stat.accuracy >= 70
-                                      ? 'text-emerald-600 font-semibold'
-                                      : 'text-rose-600 font-semibold'
+                                      ? 'text-emerald-400 font-semibold'
+                                      : 'text-rose-400 font-semibold'
                                   }
                                 >
                                   {stat.accuracy}% correct
@@ -1090,93 +1128,78 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                           </div>
                         </td>
 
-                        {/* Subject & Chapter */}
-                        <td className="py-3 px-4 text-xs">
-                          <div className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">
+                        <td className="py-3.5 px-4 text-xs">
+                          <div className="font-semibold text-[var(--lc-text)] truncate">
                             {subjectName}
                           </div>
-                          <div className="text-zinc-500 truncate mt-0.5">{chapterName}</div>
+                          <div className="text-[var(--lc-text-secondary)] truncate mt-0.5">{chapterName}</div>
                         </td>
 
-                        {/* Answer */}
-                        <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-xs font-bold">
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-[8px] bg-white/[0.05] border border-[var(--lc-border)] text-[var(--lc-text)] text-xs font-semibold tabular-nums">
                             {q.correctAnswer}
                           </span>
                         </td>
 
-                        {/* Sources */}
-                        <td className="py-3 px-4 text-xs">
-                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        <td className="py-3.5 px-4 text-xs">
+                          <div className="space-y-0.5 max-w-[210px]">
                             {questionSources.map((s, sIdx) => {
                               const isGuide = s.type?.toLowerCase() === 'guide';
-                              const isSchool = s.type?.toLowerCase() === 'school';
                               const isMatchingGuide =
                                 hasSpecificGuide &&
                                 isGuide &&
                                 s.name?.toLowerCase().trim() === specificGuideName?.toLowerCase().trim();
 
                               return (
-                                <span
+                                <div
                                   key={sIdx}
-                                  className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium transition ${
+                                  className={`truncate text-[11px] ${
                                     isMatchingGuide
-                                      ? 'bg-purple-100 text-purple-900 border border-purple-400 dark:bg-purple-900/60 dark:text-purple-200 dark:border-purple-600 shadow-xs font-semibold ring-1 ring-purple-400/40'
-                                      : isGuide
-                                      ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
-                                      : isSchool
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                                      : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                                      ? 'text-indigo-300 font-medium'
+                                      : 'text-[var(--lc-text-secondary)]'
                                   }`}
                                   title={`${s.type}: ${s.name}${s.entryNo ? ` (Entry #${s.entryNo})` : ''}`}
                                 >
-                                  <span className="font-bold">{s.type}:</span>
-                                  <span className="truncate max-w-[100px]">{s.name}</span>
+                                  <span className="text-[var(--lc-text-muted)]">{s.type}:</span>{' '}
+                                  <span>{s.name}</span>
                                   {isGuide && s.entryNo && (
-                                    <span
-                                      className={`font-mono text-[9px] px-1 py-0.2 rounded font-bold ${
-                                        isMatchingGuide
-                                          ? 'bg-purple-600 text-white dark:bg-purple-400 dark:text-purple-950 shadow-xs'
-                                          : 'bg-purple-200/70 dark:bg-purple-900/60 font-semibold'
-                                      }`}
-                                    >
+                                    <span className="ml-1 font-mono text-[10px] font-semibold text-indigo-300">
                                       #{s.entryNo}
                                     </span>
                                   )}
-                                </span>
+                                </div>
                               );
                             })}
                           </div>
                         </td>
 
-                        {/* Flags */}
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => handleFlagClick(q.id, 'important')}
-                              className={`p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition ${
-                                q.important ? 'text-amber-500' : 'text-zinc-300 dark:text-zinc-700'
+                              className={`p-1.5 rounded-[8px] hover:bg-[var(--lc-surface-subtle)] transition ${
+                                q.important ? 'text-[var(--lc-warning)]' : 'text-[var(--lc-text-muted)]'
                               }`}
                               title={q.important ? 'Important (Click to toggle)' : 'Mark Important'}
                             >
-                              <Bookmark className={`w-3.5 h-3.5 ${q.important ? 'fill-amber-500' : ''}`} />
+                              <Bookmark className={`w-3.5 h-3.5 ${q.important ? 'fill-current' : ''}`} />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleFlagClick(q.id, 'veryImportant')}
-                              className={`p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition ${
-                                q.veryImportant ? 'text-rose-500' : 'text-zinc-300 dark:text-zinc-700'
+                              className={`p-1.5 rounded-[8px] hover:bg-[var(--lc-surface-subtle)] transition ${
+                                q.veryImportant ? 'text-[var(--lc-error)]' : 'text-[var(--lc-text-muted)]'
                               }`}
                               title={q.veryImportant ? 'Very Important (Click to toggle)' : 'Mark Very Important'}
                             >
-                              <Flame className={`w-3.5 h-3.5 ${q.veryImportant ? 'fill-rose-500' : ''}`} />
+                              <Flame className={`w-3.5 h-3.5 ${q.veryImportant ? 'fill-current' : ''}`} />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleFlagClick(q.id, 'dontUnderstand')}
-                              className={`p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition ${
-                                q.dontUnderstand ? 'text-purple-600' : 'text-zinc-300 dark:text-zinc-700'
+                              className={`p-1.5 rounded-[8px] hover:bg-[var(--lc-surface-subtle)] transition ${
+                                q.dontUnderstand ? 'text-[var(--lc-accent)]' : 'text-[var(--lc-text-muted)]'
                               }`}
                               title={q.dontUnderstand ? "Don't Understand (Click to toggle)" : "Mark Don't Understand"}
                             >
@@ -1185,16 +1208,15 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                           </div>
                         </td>
 
-                        {/* Actions */}
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => {
                                 if (onEditQuestion) onEditQuestion(q.id);
-                                else onNavigate('add-question', { editId: q.id });
+                                else setEditingQuestionId(q.id);
                               }}
-                              className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded"
+                              className="p-1.5 text-[var(--lc-text-muted)] hover:text-[var(--lc-text)] hover:bg-[var(--lc-surface-subtle)] rounded-[8px] transition"
                               title="Edit Question"
                             >
                               <Edit className="w-3.5 h-3.5" />
@@ -1202,7 +1224,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                             <button
                               type="button"
                               onClick={() => setSingleDeleteTarget(q)}
-                              className="p-1 text-zinc-400 hover:text-rose-600 rounded"
+                              className="p-1.5 text-[var(--lc-text-muted)] hover:text-[var(--lc-error)] hover:bg-[var(--lc-error-soft)] rounded-[8px] transition"
                               title="Delete Question"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1210,7 +1232,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                             <button
                               type="button"
                               onClick={() => setExpandedId(isExpanded ? null : q.id)}
-                              className="p-1 text-zinc-400 hover:text-zinc-700 rounded"
+                              className="p-1.5 text-[var(--lc-text-muted)] hover:text-[var(--lc-accent)] hover:bg-[var(--lc-surface-subtle)] rounded-[8px] transition"
                               title="Preview Details"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -1219,51 +1241,47 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                         </td>
                       </tr>
 
-                      {/* Expanded View for Detailed Inspection */}
                       {isExpanded && (
-                        <tr className="bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-800">
-                          <td colSpan={7} className="p-4 space-y-3">
-                            {/* Full Question Prompt & Question Figures */}
-                            <div className="p-3.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-sm space-y-2">
-                              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
-                                Question Prompt:
+                        <tr className="bg-white/[0.025] border-b border-[var(--lc-divider)]">
+                          <td colSpan={7} className="p-5 sm:p-6 space-y-4">
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-medium text-indigo-300 block">
+                                Question prompt
                               </span>
                               <RichContentRenderer
                                 content={q.question}
                                 contentBlocks={q.contentBlocks}
                                 images={q.images}
-                                className="text-zinc-900 dark:text-zinc-100 font-medium leading-relaxed"
+                                className="text-sm text-[var(--lc-text)] font-medium leading-relaxed"
                               />
                             </div>
 
-                            {/* Common Information Stimulus if COMMON_STEM */}
                             {q.commonInfoId && commonInfoMap[q.commonInfoId] && (
-                              <div className="p-3.5 rounded-lg bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs space-y-1.5">
-                                <div className="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
-                                  <span>উদ্দীপক / অনুচ্ছেদ: {commonInfoMap[q.commonInfoId].title || 'অভিন্ন তথ্যভিত্তিক'}</span>
+                              <div className="p-3.5 rounded-[12px] bg-[var(--lc-accent-soft)] border border-[var(--lc-accent-border)] text-xs space-y-1.5">
+                                <div className="font-semibold text-indigo-300">
+                                  উদ্দীপক / অনুচ্ছেদ: {commonInfoMap[q.commonInfoId].title || 'অভিন্ন তথ্যভিত্তিক'}
                                 </div>
                                 <RichContentRenderer
                                   content={commonInfoMap[q.commonInfoId].content}
                                   contentBlocks={commonInfoMap[q.commonInfoId].contentBlocks}
                                   images={commonInfoMap[q.commonInfoId].images}
-                                  className="text-zinc-800 dark:text-zinc-200 leading-relaxed"
+                                  className="text-[var(--lc-text)] leading-relaxed"
                                 />
                               </div>
                             )}
 
-                            {/* Statements if MULTIPLE_STATEMENT */}
                             {q.statements && q.statements.length > 0 && (
-                              <div className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs space-y-1.5">
-                                <div className="font-bold text-zinc-700 dark:text-zinc-300">
+                              <div className="p-3.5 rounded-[12px] bg-white/[0.03] border border-[var(--lc-border)] text-xs space-y-1.5">
+                                <div className="font-semibold text-[var(--lc-text)]">
                                   বক্তব্যসমূহ (Statements):
                                 </div>
                                 <div className="space-y-1 pl-1">
                                   {q.statements.map((stmt, sIdx) => (
                                     <div key={sIdx} className="flex items-start gap-2">
-                                      <span className="font-mono font-bold text-[10px] text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                                      <span className="font-mono font-semibold text-[11px] text-[var(--lc-text-muted)] shrink-0">
                                         {toRomanNumeral(sIdx + 1)}.
                                       </span>
-                                      <div className="flex-1 text-zinc-800 dark:text-zinc-200">
+                                      <div className="flex-1 text-[var(--lc-text)]">
                                         <RichContentRenderer content={stmt} />
                                       </div>
                                     </div>
@@ -1272,22 +1290,19 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                               </div>
                             )}
 
-                            <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                              Options & Explanation
-                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {(['A', 'B', 'C', 'D'] as const).map(k => {
                                 const optImg = q.optionImages?.[k];
                                 return (
                                   <div
                                     key={k}
-                                    className={`p-2.5 rounded-lg border text-xs flex items-start gap-2 ${
+                                    className={`p-2.5 rounded-[10px] border text-xs flex items-start gap-2 ${
                                       q.correctAnswer === k
-                                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 font-semibold'
-                                        : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300'
+                                        ? 'border-emerald-400/40 bg-emerald-500/12 text-[var(--lc-text)] font-medium'
+                                        : 'border-[var(--lc-border)] bg-white/[0.03] text-[var(--lc-text-secondary)]'
                                     }`}
                                   >
-                                    <span className="w-4 h-4 rounded bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                                    <span className="w-5 h-5 rounded-[6px] bg-white/[0.05] border border-[var(--lc-border)] flex items-center justify-center text-[10px] font-semibold shrink-0">
                                       {k}
                                     </span>
                                     <div className="flex-1">
@@ -1297,7 +1312,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                                           <ImageLightbox
                                             image={optImg}
                                             alt={`Option ${k} diagram`}
-                                            className="max-h-16 object-contain rounded"
+                                            className="max-h-16 object-contain rounded-[6px]"
                                           />
                                         </div>
                                       )}
@@ -1308,11 +1323,11 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                             </div>
 
                             {(q.explanation || (q.explanationImages && q.explanationImages.length > 0)) && (
-                              <div className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs space-y-1">
-                                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                              <div className="pt-3 border-t border-[var(--lc-divider)] text-xs space-y-1">
+                                <span className="font-semibold text-[var(--lc-text)]">
                                   Explanation / Derivation:
                                 </span>
-                                <div className="text-zinc-600 dark:text-zinc-400 mt-1">
+                                <div className="text-[var(--lc-text-secondary)] mt-1">
                                   <RichContentRenderer
                                     content={q.explanation || ''}
                                     images={q.explanationImages}
@@ -1321,16 +1336,15 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                               </div>
                             )}
 
-                            {/* Sources List in Expanded View */}
-                            <div className="text-xs flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-zinc-500">Sources:</span>
+                            <div className="text-xs flex items-center gap-2 flex-wrap text-[var(--lc-text-muted)]">
+                              <span className="font-medium text-[var(--lc-text-secondary)]">Sources:</span>
                               {questionSources.map((s, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium text-[11px]"
-                                >
-                                  {s.type}: {s.name}{s.entryNo ? ` (Entry #${s.entryNo})` : ''}
-                                </span>
+                                <React.Fragment key={idx}>
+                                  {idx > 0 && <span aria-hidden="true">·</span>}
+                                  <span>
+                                    {s.type}: {s.name}{s.entryNo ? ` (#${s.entryNo})` : ''}
+                                  </span>
+                                </React.Fragment>
                               ))}
                             </div>
                           </td>
@@ -1346,17 +1360,17 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
 
         {/* Pagination Bar */}
         {!loading && totalQuestions > 0 && (
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
+          <div className="p-4 border-t border-[var(--lc-border)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--lc-text-secondary)] tabular-nums">
             <div>
               Showing{' '}
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+              <span className="font-semibold text-[var(--lc-text)]">
                 {(currentPage - 1) * pageSize + 1}
               </span>{' '}
               to{' '}
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+              <span className="font-semibold text-[var(--lc-text)]">
                 {Math.min(currentPage * pageSize, totalQuestions)}
               </span>{' '}
-              of <span className="font-semibold text-zinc-800 dark:text-zinc-200">{totalQuestions}</span> questions
+              of <span className="font-semibold text-[var(--lc-text)]">{totalQuestions}</span> questions
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -1364,12 +1378,12 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                 type="button"
                 disabled={currentPage <= 1}
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 disabled:opacity-40 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                className="lc-btn-secondary p-1.5 rounded-[8px] disabled:opacity-40"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <span className="px-3 py-1 font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="px-3 py-1 font-medium text-[var(--lc-text)]">
                 Page {currentPage} of {totalPages}
               </span>
 
@@ -1377,7 +1391,7 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
                 type="button"
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 disabled:opacity-40 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                className="lc-btn-secondary p-1.5 rounded-[8px] disabled:opacity-40"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -1408,18 +1422,18 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
 
       {/* Bulk Move Subject/Chapter Modal */}
       {bulkActionModal === 'subject' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 max-w-sm w-full space-y-4 shadow-xl">
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 text-base">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-[4px]">
+          <div className="lc-modal p-5 max-w-sm w-full space-y-4 animate-lc-modal">
+            <h3 className="font-semibold text-[var(--lc-text)] text-base">
               Move {selectedIds.size} Questions
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Target Subject</label>
+                <label className="text-xs font-semibold text-[var(--lc-text-secondary)]">Target Subject</label>
                 <select
                   value={bulkInputValue.subjectId || ''}
                   onChange={e => setBulkInputValue({ subjectId: e.target.value, chapterId: '' })}
-                  className="w-full mt-1 p-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
+                  className="lc-select w-full mt-1 p-2 text-xs"
                 >
                   <option value="">Select subject</option>
                   {subjects.map(s => (
@@ -1430,11 +1444,11 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
 
               {bulkInputValue.subjectId && (
                 <div>
-                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Target Chapter</label>
+                  <label className="text-xs font-semibold text-[var(--lc-text-secondary)]">Target Chapter</label>
                   <select
                     value={bulkInputValue.chapterId || ''}
                     onChange={e => setBulkInputValue({ ...bulkInputValue, chapterId: e.target.value })}
-                    className="w-full mt-1 p-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
+                    className="lc-select w-full mt-1 p-2 text-xs"
                   >
                     <option value="">Select chapter</option>
                     {Array.from(allChaptersMap.values())
@@ -1450,18 +1464,18 @@ export const QuestionBankPage: React.FC<QuestionBankPageProps> = ({
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                disabled={!bulkInputValue.subjectId || !bulkInputValue.chapterId}
-                onClick={() => handleExecuteBulkAction('set_subject_chapter', bulkInputValue)}
-                className="flex-1 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg"
+                onClick={() => setBulkActionModal(null)}
+                className="lc-btn-secondary px-4 py-2 text-xs"
               >
-                Apply Move
+                Cancel
               </button>
               <button
                 type="button"
-                onClick={() => setBulkActionModal(null)}
-                className="px-3 py-2 text-xs text-zinc-500 hover:bg-zinc-100 rounded-lg"
+                disabled={!bulkInputValue.subjectId || !bulkInputValue.chapterId}
+                onClick={() => handleExecuteBulkAction('set_subject_chapter', bulkInputValue)}
+                className="lc-btn-primary flex-1 py-2 text-xs disabled:opacity-40"
               >
-                Cancel
+                Apply Move
               </button>
             </div>
           </div>

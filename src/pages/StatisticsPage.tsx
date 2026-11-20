@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
+import {
+  TrendingUp,
+  CheckCircle2,
   Award,
   BookOpen,
   ArrowRight,
@@ -12,8 +9,7 @@ import {
   FileQuestion
 } from 'lucide-react';
 import { getOverallStatistics } from '../services/attemptService';
-import { getAllSubjects, getChaptersBySubject } from '../services/subjectService';
-import type { SubjectStatistics, ChapterStatistics, QuestionTypeStatistics } from '../types';
+import type { SubjectStatistics, QuestionTypeStatistics } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
 interface StatisticsPageProps {
@@ -46,60 +42,62 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ onNavigate }) =>
   }, []);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+        <h1 className="text-xl sm:text-2xl font-semibold text-[var(--lc-text)] tracking-tight">
           Performance Analytics
         </h1>
-        <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+        <p className="text-xs sm:text-sm text-[var(--lc-text-secondary)] mt-1">
           Detailed accuracy, attempt ratios, and chapter mastery rates.
         </p>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-zinc-500 text-sm">Computing analytics...</div>
+        <div className="text-center py-12 text-[var(--lc-text-secondary)] text-sm">
+          Computing analytics...
+        </div>
       ) : !stats ? (
-        <div className="p-8 text-center text-zinc-500">Failed to load statistics.</div>
+        <div className="p-8 text-center text-[var(--lc-text-muted)]">Failed to load statistics.</div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Key Metric Highlights */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+            <div className="lc-card p-5">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-[12px] bg-indigo-500/15 border border-indigo-400/25 text-indigo-300 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-xs text-zinc-500">Overall Accuracy</div>
-                  <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
+                  <div className="text-xs font-medium text-[var(--lc-text-secondary)]">Overall accuracy</div>
+                  <div className="text-2xl font-semibold text-[var(--lc-text)] mt-0.5 tabular-nums tracking-tight">
                     {stats.overallAccuracy}%
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+            <div className="lc-card p-5">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-[12px] bg-emerald-500/15 border border-emerald-400/25 text-emerald-400 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-xs text-zinc-500">Total Attempts</div>
-                  <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
-                    {stats.totalAttempts}
+                  <div className="text-xs font-medium text-[var(--lc-text-secondary)]">Total attempts</div>
+                  <div className="text-2xl font-semibold text-[var(--lc-text)] mt-0.5 tabular-nums tracking-tight">
+                    {stats.totalAttempts.toLocaleString()}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+            <div className="lc-card p-5">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-[12px] bg-amber-500/15 border border-amber-400/25 text-amber-300 flex items-center justify-center shrink-0">
                   <Award className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-xs text-zinc-500">Active Curriculum Subjects</div>
-                  <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
+                  <div className="text-xs font-medium text-[var(--lc-text-secondary)]">Active curriculum subjects</div>
+                  <div className="text-2xl font-semibold text-[var(--lc-text)] mt-0.5 tabular-nums tracking-tight">
                     {stats.subjectStats.length}
                   </div>
                 </div>
@@ -109,69 +107,68 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ onNavigate }) =>
 
           {/* Question Type Breakdown */}
           {stats.typeStats && stats.typeStats.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div>
-                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                <h2 className="text-base font-semibold text-[var(--lc-text)] tracking-tight">
                   Question Type Performance
                 </h2>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-[var(--lc-text-secondary)] mt-0.5">
                   Accuracy and practice coverage across Standard, বহুপদী সমাপ্তিসূচক, and অভিন্ন তথ্যভিত্তিক MCQs.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {stats.typeStats.map(ts => {
-                  const attemptedPercent = ts.totalQuestions > 0 ? Math.round((ts.attemptedQuestions / ts.totalQuestions) * 100) : 0;
+                  const attemptedPercent =
+                    ts.totalQuestions > 0
+                      ? Math.round((ts.attemptedQuestions / ts.totalQuestions) * 100)
+                      : 0;
                   const isMulti = ts.type === 'MULTIPLE_STATEMENT';
                   const isStem = ts.type === 'COMMON_STEM';
 
                   return (
-                    <div
-                      key={ts.type}
-                      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4 shadow-xs"
-                    >
+                    <div key={ts.type} className="lc-card p-5 space-y-4">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`p-2 rounded-lg ${
-                            isMulti
-                              ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
-                              : isStem
-                              ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400'
-                              : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-                          }`}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 border ${
+                              isMulti
+                                ? 'bg-indigo-500/15 border-indigo-400/25 text-indigo-300'
+                                : isStem
+                                ? 'bg-violet-500/15 border-violet-400/25 text-violet-300'
+                                : 'bg-white/[0.05] border-[var(--lc-border)] text-[var(--lc-text-secondary)]'
+                            }`}
+                          >
                             {isMulti ? <Layers className="w-4 h-4" /> : <FileQuestion className="w-4 h-4" />}
                           </div>
-                          <div>
-                            <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-sm text-[var(--lc-text)] truncate">
                               {ts.label}
                             </h3>
-                            <div className="text-xs text-zinc-500">
-                              {ts.totalQuestions} Questions • {ts.attemptedQuestions} Practiced
+                            <div className="text-xs text-[var(--lc-text-muted)] tabular-nums mt-0.5">
+                              {ts.totalQuestions} questions · {ts.attemptedQuestions} practiced
                             </div>
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                        <div className="text-right tabular-nums shrink-0">
+                          <div className="text-lg font-semibold text-[var(--lc-text)]">
                             {ts.accuracy}%
                           </div>
-                          <div className="text-[10px] uppercase font-semibold text-zinc-400">
+                          <div className="text-[11px] text-[var(--lc-text-muted)]">
                             Accuracy
                           </div>
                         </div>
                       </div>
 
-                      {/* Progress bar */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-zinc-500">
-                          <span>Practice Coverage</span>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-[var(--lc-text-secondary)] tabular-nums">
+                          <span>Practice coverage</span>
                           <span>{attemptedPercent}%</span>
                         </div>
-                        <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-white/[0.07] rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${
-                              isMulti ? 'bg-blue-500' : isStem ? 'bg-purple-500' : 'bg-indigo-500'
-                            }`}
+                            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-400 transition-all"
                             style={{ width: `${attemptedPercent}%` }}
                           />
                         </div>
@@ -185,89 +182,86 @@ export const StatisticsPage: React.FC<StatisticsPageProps> = ({ onNavigate }) =>
 
           {/* Subject Breakdown Cards */}
           <div className="space-y-4">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              Subject & Chapter Breakdown
+            <h2 className="text-base font-semibold text-[var(--lc-text)] tracking-tight">
+              Subject &amp; Chapter Breakdown
             </h2>
 
             {stats.subjectStats.length === 0 ? (
-              <div className="p-8 text-center bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 text-sm">
+              <div className="lc-card p-8 text-center text-[var(--lc-text-secondary)] text-sm">
                 No subject statistics recorded yet. Start practicing to generate stats!
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {stats.subjectStats.map(s => {
                   const attemptedRatio =
-                    s.totalQuestions > 0 ? Math.round((s.attemptedQuestions / s.totalQuestions) * 100) : 0;
+                    s.totalQuestions > 0
+                      ? Math.round((s.attemptedQuestions / s.totalQuestions) * 100)
+                      : 0;
 
                   return (
-                    <div
-                      key={s.subjectId}
-                      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4 shadow-xs"
-                    >
+                    <div key={s.subjectId} className="lc-card p-5 space-y-4">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-[10px] bg-indigo-500/15 border border-indigo-400/25 text-indigo-300 flex items-center justify-center shrink-0">
                             <BookOpen className="w-4 h-4" />
                           </div>
                           <div>
-                            <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                            <h3 className="font-semibold text-sm text-[var(--lc-text)]">
                               {s.subjectName}
                             </h3>
-                            <div className="text-xs text-zinc-500">
-                              {s.totalQuestions} Questions • {s.attemptedQuestions} Practiced
+                            <div className="text-xs text-[var(--lc-text-muted)] tabular-nums mt-0.5">
+                              {s.totalQuestions} questions · {s.attemptedQuestions} practiced
                             </div>
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                        <div className="text-right tabular-nums">
+                          <div className="text-lg font-semibold text-[var(--lc-text)]">
                             {s.accuracy}%
                           </div>
-                          <div className="text-[10px] uppercase font-semibold text-zinc-400">
+                          <div className="text-[11px] text-[var(--lc-text-muted)]">
                             Accuracy
                           </div>
                         </div>
                       </div>
 
-                      {/* Progress Bar for Accuracy */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-zinc-500">
-                          <span>Accuracy Rate</span>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-[var(--lc-text-secondary)] tabular-nums">
+                          <span>Accuracy rate</span>
                           <span>{s.accuracy}%</span>
                         </div>
-                        <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-white/[0.07] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${
                               s.accuracy >= 80
-                                ? 'bg-emerald-500'
+                                ? 'bg-emerald-400'
                                 : s.accuracy >= 60
-                                ? 'bg-indigo-500'
-                                : 'bg-amber-500'
+                                ? 'bg-indigo-400'
+                                : 'bg-amber-400'
                             }`}
                             style={{ width: `${s.accuracy}%` }}
                           />
                         </div>
                       </div>
 
-                      {/* Progress Bar for Coverage */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-zinc-500">
-                          <span>Coverage (Questions Attempted)</span>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-[var(--lc-text-secondary)] tabular-nums">
+                          <span>Coverage (attempted)</span>
                           <span>{attemptedRatio}%</span>
                         </div>
-                        <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-white/[0.07] rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-indigo-600 rounded-full transition-all"
+                            className="h-full bg-indigo-400 rounded-full transition-all"
                             style={{ width: `${attemptedRatio}%` }}
                           />
                         </div>
                       </div>
 
-                      <div className="pt-2 flex justify-end">
+                      <div className="pt-2 flex justify-end border-t border-[var(--lc-divider)]">
                         <button
                           type="button"
                           onClick={() => onNavigate('practice', { subjectId: s.subjectId })}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-semibold bg-indigo-500/16 text-indigo-300 hover:bg-indigo-500/26 border border-indigo-400/20 transition-colors"
                         >
                           <span>Practice {s.subjectName}</span>
                           <ArrowRight className="w-3 h-3" />

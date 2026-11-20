@@ -100,6 +100,7 @@ export interface Question {
   important: boolean;
   veryImportant: boolean;
   dontUnderstand: boolean;
+  wrongMasteredAt?: number;
   createdAt: number;
   updatedAt: number;
 }

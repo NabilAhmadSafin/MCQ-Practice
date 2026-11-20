@@ -25,33 +25,34 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div 
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-100"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-md">
+      <div
+        className="lc-modal animate-lc-modal max-w-md w-full p-6"
         role="dialog"
         aria-modal="true"
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             {isDangerous && (
-              <div className="p-2 rounded-full bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400">
+              <div className="p-2 rounded-full bg-rose-500/15 border border-rose-400/25 text-rose-400">
                 <AlertTriangle className="w-5 h-5" />
               </div>
             )}
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-lg font-semibold text-[#F3F5FA] tracking-tight">
               {title}
             </h3>
           </div>
           <button
+            type="button"
             onClick={onCancel}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-md"
+            className="text-[#7D859C] hover:text-[#F3F5FA] p-1.5 rounded-lg hover:bg-white/10 transition-colors"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-sm text-zinc-600 dark:text-zinc-300 mb-6 leading-relaxed whitespace-pre-line">
+        <p className="text-sm text-[#A9B1C6] mb-6 leading-relaxed whitespace-pre-line">
           {message}
         </p>
 
@@ -59,17 +60,15 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+            className="lc-btn-secondary px-4 py-2 text-sm"
           >
             {cancelText}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors shadow-xs ${
-              isDangerous
-                ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
-                : 'bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-950 dark:bg-zinc-100 dark:text-zinc-900'
+            className={`px-4 py-2 text-sm ${
+              isDangerous ? 'lc-btn-danger' : 'lc-btn-primary'
             }`}
           >
             {confirmText}

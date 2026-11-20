@@ -135,9 +135,8 @@ export async function getWeakQuestions(): Promise<{
 }
 
 export async function markQuestionMastered(questionId: string): Promise<void> {
-  await apiFetch(`/api/questions/${encodeURIComponent(questionId)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ dontUnderstand: false })
+  await apiFetch(`/api/questions/${encodeURIComponent(questionId)}/mastered`, {
+    method: 'POST'
   });
 }
 

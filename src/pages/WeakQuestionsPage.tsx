@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  AlertTriangle, 
-  Play, 
-  CheckCircle2, 
-  HelpCircle, 
-  Flame, 
-  ArrowRight,
-  BookOpen
+import {
+  Play,
+  CheckCircle2
 } from 'lucide-react';
 import { getWeakQuestions, markQuestionMastered } from '../services/attemptService';
 import { getAllSubjects, getAllChapters } from '../services/subjectService';
-import { FlagIcons } from '../components/common/FlagIcons';
+import { RichContentRenderer } from '../components/common/RichContentRenderer';
 import type { Question, Subject, Chapter } from '../types';
 import type { NavSection } from '../components/layout/Sidebar';
 
@@ -19,7 +14,7 @@ interface WeakQuestionsPageProps {
 }
 
 export const WeakQuestionsPage: React.FC<WeakQuestionsPageProps> = ({ onNavigate }) => {
-  const [weakItems, setWeakItems] = useState<{
+  const [wrongItems, setWrongItems] = useState<{
     question: Question;
     wrongCount: number;
     totalAttempts: number;
@@ -28,6 +23,7 @@ export const WeakQuestionsPage: React.FC<WeakQuestionsPageProps> = ({ onNavigate
   const [subjectsMap, setSubjectsMap] = useState<Map<string, Subject>>(new Map());
   const [chaptersMap, setChaptersMap] = useState<Map<string, Chapter>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [masteringId, setMasteringId] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -36,11 +32,11 @@ export const WeakQuestionsPage: React.FC<WeakQuestionsPageProps> = ({ onNavigate
         getAllSubjects(),
         getAllChapters()
       ]);
-      setWeakItems(items);
+      setWrongItems(items);
       setSubjectsMap(new Map(subjs.map(s => [s.id, s])));
       setChaptersMap(new Map(chaps.map(c => [c.id, c])));
     } catch (e) {
-      console.error('Failed to load weak questions', e);
+      console.error('Failed to load wrong answers', e);
     } finally {
       setLoading(false);
     }
@@ -51,122 +47,138 @@ export const WeakQuestionsPage: React.FC<WeakQuestionsPageProps> = ({ onNavigate
   }, []);
 
   const handleMastered = async (qId: string) => {
-    await markQuestionMastered(qId);
-    setWeakItems(prev => prev.filter(i => i.question.id !== qId));
+    setMasteringId(qId);
+    try {
+      await markQuestionMastered(qId);
+      setWrongItems(prev => prev.filter(i => i.question.id !== qId));
+    } catch (e) {
+      console.error('Failed to mark question as mastered', e);
+    } finally {
+      setMasteringId(null);
+    }
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <span>Weak & Struggling Questions</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 font-bold">
-              {weakItems.length}
+          <h1 className="text-xl sm:text-2xl font-semibold text-[var(--lc-text)] tracking-tight flex items-baseline gap-2.5">
+            <span>Wrong Answers</span>
+            <span className="text-sm font-medium text-rose-400 tabular-nums">
+              {wrongItems.length} to review
             </span>
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-            Questions you answered wrong multiple times or marked &quot;Don&apos;t Understand&quot;.
+          <p className="text-xs sm:text-sm text-[var(--lc-text-secondary)] mt-1">
+            Questions you answered wrong at least once. Click Mastered to remove a question once you&apos;ve learned it.
           </p>
         </div>
 
-        {weakItems.length > 0 && (
+        {wrongItems.length > 0 && (
           <button
             type="button"
             onClick={() => onNavigate('practice', { initialMode: 'wrong' })}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs self-start sm:self-auto"
+            className="lc-btn-danger inline-flex items-center gap-2 px-4 py-2 text-sm self-start sm:self-auto"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>Practice Weak Questions</span>
+            <span>Practice Wrong Answers</span>
           </button>
         )}
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-zinc-500 text-sm">Detecting weak questions...</div>
-      ) : weakItems.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 space-y-3">
-          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-          <h3 className="font-semibold text-zinc-800 dark:text-zinc-200 text-base">
-            No weak questions identified!
+        <div className="text-center py-12 text-[var(--lc-text-secondary)] text-sm">
+          Loading wrong answers...
+        </div>
+      ) : wrongItems.length === 0 ? (
+        <div className="lc-card p-12 text-center border-dashed space-y-3">
+          <CheckCircle2 className="w-11 h-11 text-emerald-400 mx-auto" />
+          <h3 className="font-semibold text-[var(--lc-text)] text-base">
+            No wrong answers!
           </h3>
-          <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-            You haven&apos;t accumulated recurring mistakes or &quot;Don&apos;t Understand&quot; flags. Keep practicing to build confidence.
+          <p className="text-xs text-[var(--lc-text-secondary)] max-w-sm mx-auto">
+            Questions you answer wrong at least once will appear here until you mark them as mastered.
           </p>
           <button
             type="button"
             onClick={() => onNavigate('practice')}
-            className="mt-2 px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg"
+            className="lc-btn-primary mt-2 px-4 py-2 text-xs"
           >
             Start Practice
           </button>
         </div>
       ) : (
         <div className="space-y-4">
-          {weakItems.map(({ question: q, wrongCount, totalAttempts, dontUnderstand }) => {
+          {wrongItems.map(({ question: q, wrongCount, totalAttempts, dontUnderstand }) => {
             const subjName = subjectsMap.get(q.subjectId)?.name || 'Subject';
             const chapName = chaptersMap.get(q.chapterId)?.name || 'Chapter';
+            const sourcesList =
+              q.sources && q.sources.length > 0
+                ? q.sources
+                : q.sourceName
+                ? [{ type: q.sourceType || 'Board', name: q.sourceName }]
+                : [];
 
             return (
-              <div
-                key={q.id}
-                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4 shadow-xs"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+              <div key={q.id} className="lc-card p-5 sm:p-6 space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    {/* Unboxed inline metadata row */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                      <span className="font-semibold text-[var(--lc-text)]">
                         {subjName}
                       </span>
-                      <span className="text-zinc-400">•</span>
-                      <span className="text-xs text-zinc-500">
-                        {chapName}
-                      </span>
-                      {(q.sources && q.sources.length > 0
-                        ? q.sources
-                        : [{ type: q.sourceType || 'Board', name: q.sourceName || '' }]
-                      ).map((s, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
-                        >
-                          {s.type}: {s.name}{s.entryNo ? ` (Entry #${s.entryNo})` : ''}
-                        </span>
+                      <span className="text-[var(--lc-text-muted)]" aria-hidden="true">·</span>
+                      <span className="text-[var(--lc-text-secondary)]">{chapName}</span>
+
+                      {sourcesList.map((s, idx) => (
+                        <React.Fragment key={idx}>
+                          <span className="text-[var(--lc-text-muted)]" aria-hidden="true">·</span>
+                          <span className="text-[var(--lc-text-muted)]">
+                            {s.type}: {s.name}{s.entryNo ? ` (#${s.entryNo})` : ''}
+                          </span>
+                        </React.Fragment>
                       ))}
+
                       {dontUnderstand && (
-                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 font-semibold">
-                          <HelpCircle className="w-3 h-3" />
-                          <span>Needs Concept Review</span>
-                        </span>
+                        <>
+                          <span className="text-[var(--lc-text-muted)]" aria-hidden="true">·</span>
+                          <span className="font-medium text-indigo-300">
+                            Needs Concept Review
+                          </span>
+                        </>
                       )}
-                      {wrongCount > 1 && (
-                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 font-semibold">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>Wrong {wrongCount} times ({totalAttempts} attempts)</span>
-                        </span>
-                      )}
+
+                      <span className="text-[var(--lc-text-muted)]" aria-hidden="true">·</span>
+                      <span className="font-medium text-rose-400 tabular-nums">
+                        Wrong {wrongCount}× ({totalAttempts} attempts)
+                      </span>
                     </div>
 
-                    <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-snug pt-1">
-                      {q.question}
-                    </h3>
+                    <div className="text-sm sm:text-[15px] font-semibold text-[var(--lc-text)] leading-relaxed pt-0.5">
+                      <RichContentRenderer
+                        content={q.question}
+                        images={q.images}
+                        contentBlocks={q.contentBlocks}
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => handleMastered(q.id)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition-colors"
-                      title="Clear flag and mark as understood"
+                      disabled={masteringId === q.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-xs font-semibold bg-emerald-500/14 text-emerald-300 hover:bg-emerald-500/24 border border-emerald-400/28 transition-colors disabled:opacity-50 whitespace-nowrap"
+                      title="Mark as mastered and remove from Wrong Answers"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Mark Mastered</span>
+                      <span>{masteringId === q.id ? 'Removing...' : 'Mastered'}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => onNavigate('practice', { questionId: q.id })}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors"
+                      className="lc-btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
                     >
                       <Play className="w-3 h-3 fill-current" />
                       <span>Practice</span>
@@ -175,32 +187,44 @@ export const WeakQuestionsPage: React.FC<WeakQuestionsPageProps> = ({ onNavigate
                 </div>
 
                 {/* Options Preview */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                   {Object.entries(q.options).map(([k, v]) => {
                     const isCorrect = k.toUpperCase() === q.correctAnswer.toUpperCase();
                     return (
                       <div
                         key={k}
-                        className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
+                        className={`p-3 rounded-[10px] border text-xs flex items-center gap-2.5 ${
                           isCorrect
-                            ? 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200 font-semibold'
-                            : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
+                            ? 'bg-emerald-500/12 border-emerald-400/35 text-emerald-200 font-semibold'
+                            : 'bg-white/[0.03] border-[var(--lc-border)] text-[var(--lc-text-secondary)]'
                         }`}
                       >
-                        <span className="w-5 h-5 rounded-md bg-white dark:bg-zinc-700 flex items-center justify-center font-bold">
+                        <span
+                          className={`w-5 h-5 rounded-[6px] border flex items-center justify-center font-semibold shrink-0 ${
+                            isCorrect
+                              ? 'bg-emerald-500/25 border-emerald-400/40 text-emerald-200'
+                              : 'bg-white/[0.05] border-[var(--lc-border)] text-[var(--lc-text-secondary)]'
+                          }`}
+                        >
                           {k}
                         </span>
-                        <span>{v}</span>
+                        <div className="min-w-0 flex-1">
+                          <RichContentRenderer content={v} />
+                        </div>
                       </div>
                     );
                   })}
                 </div>
 
                 {/* Explanation */}
-                {q.explanation && (
-                  <div className="p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-lg text-xs text-zinc-600 dark:text-zinc-300">
-                    <span className="font-bold text-zinc-800 dark:text-zinc-200">Solution: </span>
-                    {q.explanation}
+                {(q.explanation || (q.explanationBlocks && q.explanationBlocks.length > 0)) && (
+                  <div className="pt-3 border-t border-[var(--lc-divider)] text-xs text-[var(--lc-text-secondary)] leading-relaxed">
+                    <span className="font-semibold text-[var(--lc-text)]">Solution: </span>
+                    <RichContentRenderer
+                      content={q.explanation}
+                      images={q.explanationImages}
+                      contentBlocks={q.explanationBlocks}
+                    />
                   </div>
                 )}
               </div>

@@ -83,6 +83,7 @@ sqlite.exec(`
     important INTEGER NOT NULL DEFAULT 0,
     very_important INTEGER NOT NULL DEFAULT 0,
     dont_understand INTEGER NOT NULL DEFAULT 0,
+    wrong_mastered_at INTEGER NOT NULL DEFAULT 0,
     sources_json TEXT NOT NULL DEFAULT '[]',
     source_types_json TEXT NOT NULL DEFAULT '[]',
     guides_json TEXT NOT NULL DEFAULT '[]',
@@ -147,6 +148,35 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_attempts_question ON attempts(question_id, is_correct);
   CREATE INDEX IF NOT EXISTS idx_attempts_session ON attempts(session_id, attempted_at);
   CREATE INDEX IF NOT EXISTS idx_attempts_time ON attempts(attempted_at);
+`);
+
+const questionCols = sqlite.prepare(`PRAGMA table_info(questions)`).all() as { name: string }[];
+if (!questionCols.some(c => c.name === 'wrong_mastered_at')) {
+  sqlite.exec(`ALTER TABLE questions ADD COLUMN wrong_mastered_at INTEGER NOT NULL DEFAULT 0`);
+}
+
+sqlite.exec(`
+  DROP TABLE IF EXISTS english_practice_sessions;
+  DROP TABLE IF EXISTS english_part_labels;
+  DROP TABLE IF EXISTS english_q1_mcqs;
+  DROP TABLE IF EXISTS english_q2_short_questions;
+  DROP TABLE IF EXISTS english_q3_gaps;
+  DROP TABLE IF EXISTS english_info_cells;
+  DROP TABLE IF EXISTS english_info_tables;
+  DROP TABLE IF EXISTS english_q5_summaries;
+  DROP TABLE IF EXISTS english_matching_mappings;
+  DROP TABLE IF EXISTS english_matching_items;
+  DROP TABLE IF EXISTS english_rearrangement_answers;
+  DROP TABLE IF EXISTS english_rearrangement_sentences;
+  DROP TABLE IF EXISTS english_q8_poem_questions;
+  DROP TABLE IF EXISTS english_q9_story_questions;
+  DROP TABLE IF EXISTS english_questions;
+  DROP TABLE IF EXISTS english_models;
+  DROP TABLE IF EXISTS english_passages;
+  DROP TABLE IF EXISTS english_poems;
+  DROP TABLE IF EXISTS english_stories;
+  DROP TABLE IF EXISTS english_labels;
+  DELETE FROM subjects WHERE id = 'subj-eng-1st' AND NOT EXISTS (SELECT 1 FROM questions WHERE subject_id = 'subj-eng-1st');
 `);
 
 export function getStoragePaths() {
@@ -239,6 +269,7 @@ export function mapRowToQuestion(row: Record<string, any>): Question {
     important: Boolean(row.important),
     veryImportant: Boolean(row.very_important),
     dontUnderstand: Boolean(row.dont_understand),
+    wrongMasteredAt: Number(row.wrong_mastered_at ?? 0) || undefined,
     createdAt: Number(row.created_at ?? 0),
     updatedAt: Number(row.updated_at ?? 0)
   };
@@ -315,12 +346,12 @@ export function normalizeQuestionSources(sources: QuestionSource[]): {
 const upsertQuestionStmt = sqlite.prepare(`
   INSERT INTO questions (
     id, subject_id, chapter_id, question_type, question, common_info_id,
-    correct_answer, explanation, important, very_important, dont_understand,
+    correct_answer, explanation, important, very_important, dont_understand, wrong_mastered_at,
     sources_json, source_types_json, guides_json, options_json,
     images_json, content_blocks_json, statements_json, statement_images_json,
     option_images_json, explanation_images_json, explanation_blocks_json,
     created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     subject_id = excluded.subject_id,
     chapter_id = excluded.chapter_id,
@@ -332,6 +363,7 @@ const upsertQuestionStmt = sqlite.prepare(`
     important = excluded.important,
     very_important = excluded.very_important,
     dont_understand = excluded.dont_understand,
+    wrong_mastered_at = excluded.wrong_mastered_at,
     sources_json = excluded.sources_json,
     source_types_json = excluded.source_types_json,
     guides_json = excluded.guides_json,
@@ -361,6 +393,7 @@ export function upsertQuestionRow(q: Question): void {
     q.important ? 1 : 0,
     q.veryImportant ? 1 : 0,
     q.dontUnderstand ? 1 : 0,
+    q.wrongMasteredAt ? Number(q.wrongMasteredAt) : 0,
     JSON.stringify(norm.sources),
     JSON.stringify(norm.sourceTypes),
     JSON.stringify(norm.guides),
@@ -524,7 +557,9 @@ function buildQuestionWhereSql(filter: QuestionFilter): { whereSql: string; para
       } else if (st === 'unattempted') {
         statusParts.push(`NOT EXISTS (SELECT 1 FROM attempts a WHERE a.question_id = q.id)`);
       } else if (st === 'wrong') {
-        statusParts.push(`EXISTS (SELECT 1 FROM attempts a WHERE a.question_id = q.id AND a.is_correct = 0)`);
+        statusParts.push(
+          `EXISTS (SELECT 1 FROM attempts a WHERE a.question_id = q.id AND a.is_correct = 0 AND a.attempted_at > COALESCE(q.wrong_mastered_at, 0))`
+        );
       }
     }
     if (statusParts.length > 0) {
@@ -686,28 +721,41 @@ export function getQuestionStatsMapFromDb(): Record<string, QuestionStats> {
   return result;
 }
 
+export function markQuestionMasteredInDb(questionId: string): boolean {
+  const exists = sqlite.prepare('SELECT id FROM questions WHERE id = ?').get(questionId);
+  if (!exists) return false;
+  const row = sqlite
+    .prepare('SELECT MAX(attempted_at) AS max_at FROM attempts WHERE question_id = ?')
+    .get(questionId) as { max_at: number | null } | undefined;
+  const now = Date.now();
+  const masteredAt = Math.max(now, Number(row?.max_at ?? 0));
+  sqlite
+    .prepare('UPDATE questions SET wrong_mastered_at = ?, updated_at = ? WHERE id = ?')
+    .run(masteredAt, now, questionId);
+  return true;
+}
+
 export function getWeakQuestionsFromDb() {
   const rows = sqlite
     .prepare(`
       SELECT
         q.*,
-        COALESCE(s.total_attempts, 0) AS total_attempts,
-        COALESCE(s.wrong_attempts, 0) AS wrong_attempts,
-        COALESCE(s.correct_attempts, 0) AS correct_attempts
+        s.total_attempts,
+        s.wrong_attempts,
+        s.correct_attempts
       FROM questions q
-      LEFT JOIN (
+      INNER JOIN (
         SELECT
-          question_id,
+          a.question_id,
           COUNT(*) AS total_attempts,
-          SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) AS correct_attempts,
-          SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) AS wrong_attempts
-        FROM attempts
-        GROUP BY question_id
+          SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct_attempts,
+          SUM(CASE WHEN a.is_correct = 0 AND a.attempted_at > COALESCE(q2.wrong_mastered_at, 0) THEN 1 ELSE 0 END) AS wrong_attempts
+        FROM attempts a
+        INNER JOIN questions q2 ON q2.id = a.question_id
+        GROUP BY a.question_id
       ) s ON s.question_id = q.id
-      WHERE q.dont_understand = 1
-         OR COALESCE(s.wrong_attempts, 0) >= 2
-         OR (COALESCE(s.total_attempts, 0) >= 2 AND (CAST(COALESCE(s.correct_attempts, 0) AS REAL) * 100.0 / s.total_attempts) < 60.0)
-      ORDER BY COALESCE(s.wrong_attempts, 0) DESC, q.dont_understand DESC
+      WHERE s.wrong_attempts >= 1
+      ORDER BY s.wrong_attempts DESC, q.updated_at DESC
       LIMIT 500
     `)
     .all() as Record<string, any>[];
@@ -741,16 +789,17 @@ export function getSystemStatisticsFromDb() {
     .prepare(`
       SELECT
         COUNT(*) AS attempted_questions,
-        SUM(CASE WHEN wrong_cnt > 0 THEN 1 ELSE 0 END) AS wrong_questions_count,
+        SUM(CASE WHEN active_wrong_cnt > 0 THEN 1 ELSE 0 END) AS wrong_questions_count,
         SUM(CASE WHEN ROUND(CAST(correct_cnt AS REAL) * 100.0 / total_cnt) < 60 THEN 1 ELSE 0 END) AS weak_questions_count
       FROM (
         SELECT
-          question_id,
+          a.question_id,
           COUNT(*) AS total_cnt,
-          SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) AS correct_cnt,
-          SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) AS wrong_cnt
-        FROM attempts
-        GROUP BY question_id
+          SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct_cnt,
+          SUM(CASE WHEN a.is_correct = 0 AND a.attempted_at > COALESCE(q.wrong_mastered_at, 0) THEN 1 ELSE 0 END) AS active_wrong_cnt
+        FROM attempts a
+        INNER JOIN questions q ON q.id = a.question_id
+        GROUP BY a.question_id
       )
     `)
     .get() as any;

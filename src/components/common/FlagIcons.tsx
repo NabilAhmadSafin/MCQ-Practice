@@ -22,36 +22,41 @@ export const FlagIcons: React.FC<FlagIconsProps> = ({
   onToggleDontUnderstand,
   size = 'md'
 }) => {
-  const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-5 h-5' : 'w-4 h-4';
-  const buttonPadding = size === 'sm' ? 'px-1.5 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-2 py-1 text-xs';
+  const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-4.5 h-4.5' : 'w-4 h-4';
+  const buttonPadding =
+    size === 'sm'
+      ? 'px-2 py-1 text-xs'
+      : size === 'lg'
+      ? 'px-3.5 py-2 text-sm'
+      : 'px-2.5 py-1.5 text-xs';
 
   if (!interactive) {
     return (
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="flex items-center gap-2.5 flex-wrap">
         {important && (
-          <span 
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60"
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-[#EDB24E]"
             title="Important"
           >
-            <Star className={`${iconSize} fill-amber-500 text-amber-500`} />
+            <Star className={`${iconSize} fill-[#E5A43B] text-[#E5A43B]`} />
             <span>Important</span>
           </span>
         )}
         {veryImportant && (
-          <span 
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60"
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-[#F28B95]"
             title="Very Important"
           >
-            <Flame className={`${iconSize} fill-rose-500 text-rose-500`} />
+            <Flame className={`${iconSize} fill-[#F28B95] text-[#F28B95]`} />
             <span>Very Important</span>
           </span>
         )}
         {dontUnderstand && (
-          <span 
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60"
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-[#96A0FA]"
             title="Don't Understand"
           >
-            <HelpCircle className={`${iconSize} text-purple-600 dark:text-purple-400`} />
+            <HelpCircle className={`${iconSize} text-[#96A0FA]`} />
             <span>Don't Understand</span>
           </span>
         )}
@@ -64,42 +69,42 @@ export const FlagIcons: React.FC<FlagIconsProps> = ({
       <button
         type="button"
         onClick={onToggleImportant}
-        className={`inline-flex items-center gap-1.5 rounded-lg font-medium transition-all ${buttonPadding} ${
+        className={`inline-flex items-center gap-1.5 rounded-[8px] font-medium whitespace-nowrap transition-all duration-150 border ${buttonPadding} ${
           important
-            ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-700 shadow-xs'
-            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+            ? 'bg-[#E5A43B]/15 text-[#F6C86E] border-[#E5A43B]/45'
+            : 'bg-[var(--lc-surface-subtle)] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:border-[var(--lc-border-strong)] hover:text-[var(--lc-text)]'
         }`}
         title="Toggle Important status"
       >
-        <Star className={`${iconSize} ${important ? 'fill-amber-500 text-amber-500' : ''}`} />
+        <Star className={`${iconSize} ${important ? 'fill-[#F6C86E] text-[#F6C86E]' : ''}`} />
         <span>Important</span>
       </button>
 
       <button
         type="button"
         onClick={onToggleVeryImportant}
-        className={`inline-flex items-center gap-1.5 rounded-lg font-medium transition-all ${buttonPadding} ${
+        className={`inline-flex items-center gap-1.5 rounded-[8px] font-medium whitespace-nowrap transition-all duration-150 border ${buttonPadding} ${
           veryImportant
-            ? 'bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-700 shadow-xs'
-            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+            ? 'bg-[#DC626C]/16 text-[#F59EA7] border-[#DC626C]/45'
+            : 'bg-[var(--lc-surface-subtle)] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:border-[var(--lc-border-strong)] hover:text-[var(--lc-text)]'
         }`}
         title="Toggle Very Important status"
       >
-        <Flame className={`${iconSize} ${veryImportant ? 'fill-rose-500 text-rose-500' : ''}`} />
+        <Flame className={`${iconSize} ${veryImportant ? 'fill-[#F59EA7] text-[#F59EA7]' : ''}`} />
         <span>Very Important</span>
       </button>
 
       <button
         type="button"
         onClick={onToggleDontUnderstand}
-        className={`inline-flex items-center gap-1.5 rounded-lg font-medium transition-all ${buttonPadding} ${
+        className={`inline-flex items-center gap-1.5 rounded-[8px] font-medium whitespace-nowrap transition-all duration-150 border ${buttonPadding} ${
           dontUnderstand
-            ? 'bg-purple-100 text-purple-900 border border-purple-300 dark:bg-purple-950/60 dark:text-purple-200 dark:border-purple-700 shadow-xs'
-            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+            ? 'bg-[var(--lc-accent-soft)] text-[var(--lc-accent)] border-[var(--lc-accent-border)]'
+            : 'bg-[var(--lc-surface-subtle)] text-[var(--lc-text-secondary)] border-[var(--lc-border)] hover:border-[var(--lc-border-strong)] hover:text-[var(--lc-text)]'
         }`}
         title="Toggle Don't Understand status"
       >
-        <HelpCircle className={`${iconSize} ${dontUnderstand ? 'text-purple-600 dark:text-purple-300' : ''}`} />
+        <HelpCircle className={`${iconSize} ${dontUnderstand ? 'text-[var(--lc-accent)]' : ''}`} />
         <span>Don't Understand</span>
       </button>
     </div>

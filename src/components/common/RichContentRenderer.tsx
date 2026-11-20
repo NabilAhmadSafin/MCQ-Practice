@@ -193,12 +193,12 @@ const SingleQuestionImage: React.FC<{
   if (!src && !image.storagePath && !image.url) return null;
 
   return (
-    <div className="relative group my-3 inline-block max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-2 overflow-hidden shadow-xs">
-      <div className="relative overflow-hidden rounded-lg">
+    <div className="relative group my-3 inline-block max-w-full rounded-[14px] border border-[var(--lc-border)] bg-white/[0.03] p-2 overflow-hidden">
+      <div className="relative overflow-hidden rounded-[10px]">
         {hasError ? (
-          <div className="w-64 h-36 flex flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 text-xs p-4 text-center">
+          <div className="w-64 h-36 flex flex-col items-center justify-center bg-white/[0.04] text-[var(--lc-text-muted)] text-xs p-4 text-center">
             <span>Unable to load diagram</span>
-            <span className="text-[10px] text-zinc-500 mt-1">{image.altText || image.storagePath}</span>
+            <span className="text-[10px] opacity-80 mt-1">{image.altText || image.storagePath}</span>
           </div>
         ) : (
           <img
@@ -207,7 +207,7 @@ const SingleQuestionImage: React.FC<{
             loading="lazy"
             onError={() => setHasError(true)}
             onClick={() => setIsLightboxOpen(true)}
-            className={`w-auto ${maxHeight} object-contain mx-auto cursor-zoom-in transition-transform duration-200 hover:scale-[1.01]`}
+            className={`w-auto ${maxHeight} object-contain mx-auto cursor-zoom-in transition-transform duration-150 hover:scale-[1.01]`}
           />
         )}
 
@@ -216,7 +216,7 @@ const SingleQuestionImage: React.FC<{
             type="button"
             onClick={() => setIsLightboxOpen(true)}
             aria-label="Zoom image"
-            className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-900/75 hover:bg-zinc-900 text-white text-[11px] font-medium backdrop-blur-xs shadow transition opacity-80 group-hover:opacity-100"
+            className="lc-glass absolute bottom-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-[8px] text-[var(--lc-text)] text-[11px] font-medium transition-opacity opacity-85 group-hover:opacity-100"
           >
             <ZoomIn className="w-3.5 h-3.5" />
             <span>Zoom</span>
@@ -225,7 +225,7 @@ const SingleQuestionImage: React.FC<{
       </div>
 
       {image.caption && (
-        <p className="mt-2 text-center text-xs text-zinc-600 dark:text-zinc-400 italic">
+        <p className="mt-2 text-center text-xs text-[var(--lc-text-secondary)] italic">
           {image.caption}
         </p>
       )}

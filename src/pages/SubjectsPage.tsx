@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, BookOpen, Layers, ArrowRight } from 'lucide-react';
-import { 
-  getAllSubjects, 
-  createSubject, 
-  updateSubject, 
-  deleteSubject, 
+import {
+  getAllSubjects,
+  createSubject,
+  updateSubject,
+  deleteSubject,
   getQuestionCountsBySubject,
   getChaptersBySubject
 } from '../services/subjectService';
@@ -37,7 +37,6 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
       setSubjects(subjs);
       setCounts(qCounts);
 
-      // Load chapter counts
       const chCounts: Record<string, number> = {};
       for (const s of subjs) {
         const chaps = await getChaptersBySubject(s.id);
@@ -98,10 +97,10 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl sm:text-2xl font-semibold text-[var(--lc-text)] tracking-tight">
             Subjects
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-sm text-[var(--lc-text-secondary)] mt-1">
             Organize questions at the top level of your curriculum hierarchy.
           </p>
         </div>
@@ -111,7 +110,7 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
             setIsCreating(true);
             setEditingSubject(null);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs"
+          className="lc-btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>New Subject</span>
@@ -119,15 +118,14 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+        <div className="lc-glass-subtle p-3.5 rounded-[12px] bg-rose-500/12 border-rose-400/30 text-sm text-rose-200">
           {error}
         </div>
       )}
 
-      {/* Create Subject Modal / Form */}
       {isCreating && (
-        <div className="bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-5 shadow-xs">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+        <div className="lc-panel p-5 border-indigo-400/30">
+          <h2 className="text-sm font-semibold text-[var(--lc-text)] mb-3">
             Add New Subject
           </h2>
           <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-3">
@@ -137,19 +135,16 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
               onChange={e => setNewSubjectName(e.target.value)}
               placeholder="e.g. Physics, Higher Mathematics..."
               autoFocus
-              className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              className="lc-input flex-1 px-3.5 py-2 text-sm"
             />
             <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-              >
+              <button type="submit" className="lc-btn-primary px-4 py-2 text-sm">
                 Create Subject
               </button>
               <button
                 type="button"
                 onClick={() => setIsCreating(false)}
-                className="px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 rounded-lg"
+                className="lc-btn-ghost px-3 py-2 text-sm"
               >
                 Cancel
               </button>
@@ -158,10 +153,9 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Rename Subject Modal / Inline Edit */}
       {editingSubject && (
-        <div className="bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-5 shadow-xs">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+        <div className="lc-panel p-5 border-indigo-400/30">
+          <h2 className="text-sm font-semibold text-[var(--lc-text)] mb-3">
             Rename Subject
           </h2>
           <form onSubmit={handleUpdate} className="flex flex-col sm:flex-row gap-3">
@@ -170,19 +164,16 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
               value={editName}
               onChange={e => setEditName(e.target.value)}
               autoFocus
-              className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              className="lc-input flex-1 px-3.5 py-2 text-sm"
             />
             <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-              >
+              <button type="submit" className="lc-btn-primary px-4 py-2 text-sm">
                 Save
               </button>
               <button
                 type="button"
                 onClick={() => setEditingSubject(null)}
-                className="px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 rounded-lg"
+                className="lc-btn-ghost px-3 py-2 text-sm"
               >
                 Cancel
               </button>
@@ -191,20 +182,21 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Subjects List */}
       {loading ? (
-        <div className="text-center py-12 text-zinc-500 text-sm">Loading subjects...</div>
+        <div className="text-center py-12 text-[var(--lc-text-secondary)] text-sm">
+          Loading subjects...
+        </div>
       ) : subjects.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900">
-          <BookOpen className="w-10 h-10 text-zinc-400 mx-auto mb-3" />
-          <h3 className="font-semibold text-zinc-800 dark:text-zinc-200">No subjects yet</h3>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
+        <div className="lc-card p-12 text-center border-dashed">
+          <BookOpen className="w-10 h-10 text-[var(--lc-text-muted)] mx-auto mb-3" />
+          <h3 className="font-semibold text-[var(--lc-text)]">No subjects yet</h3>
+          <p className="text-xs text-[var(--lc-text-secondary)] mt-1 max-w-sm mx-auto">
             Create subjects to organize your questions into chapters and practice systematically.
           </p>
           <button
             type="button"
             onClick={() => setIsCreating(true)}
-            className="mt-4 px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg"
+            className="lc-btn-primary mt-4 px-4 py-2 text-xs"
           >
             Create Subject
           </button>
@@ -216,58 +208,53 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
             const chCount = chapterCounts[subject.id] || 0;
 
             return (
-              <div
-                key={subject.id}
-                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-xs"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
-                        <BookOpen className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h2 className="font-bold text-zinc-900 dark:text-zinc-100 text-base">
-                          {subject.name}
-                        </h2>
-                        <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
-                          <span>{chCount} Chapters</span>
-                          <span>•</span>
-                          <span>{qCount} Questions</span>
-                        </div>
+              <div key={subject.id} className="lc-card-interactive p-5 flex flex-col justify-between">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0 border bg-indigo-500/14 border-indigo-400/25 text-indigo-300">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="font-semibold text-[var(--lc-text)] text-base truncate">
+                        {subject.name}
+                      </h2>
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--lc-text-secondary)] mt-1 tabular-nums">
+                        <span>{chCount} chapters</span>
+                        <span className="text-[var(--lc-text-muted)]" aria-hidden="true">·</span>
+                        <span>{qCount} questions</span>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingSubject(subject);
-                          setEditName(subject.name);
-                          setIsCreating(false);
-                        }}
-                        className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        title="Rename Subject"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(subject)}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                        title="Delete Subject"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingSubject(subject);
+                        setEditName(subject.name);
+                        setIsCreating(false);
+                      }}
+                      className="p-1.5 text-[var(--lc-text-muted)] hover:text-[var(--lc-text)] rounded-[8px] hover:bg-white/[0.08] transition-colors"
+                      title="Rename Subject"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(subject)}
+                      className="p-1.5 text-[var(--lc-text-muted)] hover:text-rose-400 rounded-[8px] hover:bg-rose-500/12 transition-colors"
+                      title="Delete Subject"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mt-5 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+                <div className="flex items-center gap-2.5 mt-5 pt-3.5 border-t border-[var(--lc-divider)]">
                   <button
                     type="button"
                     onClick={() => onNavigate('chapters', { subjectId: subject.id })}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                    className="lc-btn-secondary flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 text-xs"
                   >
                     <Layers className="w-3.5 h-3.5" />
                     <span>View Chapters</span>
@@ -276,7 +263,7 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
                     type="button"
                     onClick={() => onNavigate('practice', { subjectId: subject.id })}
                     disabled={qCount === 0}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="lc-btn-primary flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <span>Practice Subject</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -288,7 +275,6 @@ export const SubjectsPage: React.FC<SubjectsPageProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Confirmation Dialog for Subject Deletion */}
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
         title="Delete Subject"

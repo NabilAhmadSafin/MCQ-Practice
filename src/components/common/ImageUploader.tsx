@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, ArrowUp, ArrowDown, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, X, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
 import { validateImageFile, storeImage, deleteMediaFile } from '../../services/imageStorageService';
 import type { QuestionImage } from '../../types';
 
@@ -99,11 +99,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-            {label} ({images.length})
+          <label className="block text-xs font-medium text-[var(--lc-text-secondary)]">
+            {label} (<span className="tabular-nums">{images.length}</span>)
           </label>
           {description && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs text-[var(--lc-text-muted)] mt-0.5">
               {description}
             </p>
           )}
@@ -120,10 +120,10 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
+          className={`border-2 border-dashed rounded-[14px] p-5 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-2 ${
             isDragOver
-              ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20'
-              : 'border-zinc-300 dark:border-zinc-700 hover:border-indigo-400 dark:hover:border-indigo-600 bg-zinc-50/50 dark:bg-zinc-800/30'
+              ? 'border-indigo-400 bg-indigo-500/12'
+              : 'border-[var(--lc-border)] hover:border-indigo-400/50 bg-white/[0.025]'
           }`}
         >
           <input
@@ -136,20 +136,20 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           />
 
           {isUploading ? (
-            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-semibold py-2">
+            <div className="flex items-center gap-2 text-indigo-300 text-xs font-semibold py-2">
               <Loader2 className="w-5 h-5 animate-spin" />
               <span>Optimizing and compressing image...</span>
             </div>
           ) : (
             <>
-              <div className="p-2.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+              <div className="w-10 h-10 rounded-[10px] bg-indigo-500/15 border border-indigo-400/25 text-indigo-300 flex items-center justify-center">
                 <Upload className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                  Click to upload or drag & drop image
+                <p className="text-xs font-semibold text-[var(--lc-text)]">
+                  Click to upload or drag &amp; drop image
                 </p>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-[11px] text-[var(--lc-text-muted)] mt-0.5">
                   PNG, JPG, or WebP (automatically optimized for fast loading)
                 </p>
               </div>
@@ -159,7 +159,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       )}
 
       {errorMessage && (
-        <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-xs">
+        <div className="p-3 rounded-[10px] bg-rose-500/12 border border-rose-400/30 text-rose-200 text-xs">
           {errorMessage}
         </div>
       )}
@@ -170,11 +170,10 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           {images.map((img, idx) => (
             <div
               key={img.id || idx}
-              className="relative rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 space-y-2.5 shadow-xs"
+              className="lc-glass-subtle rounded-[12px] p-3 space-y-2.5"
             >
               <div className="flex items-start gap-3">
-                {/* Thumbnail */}
-                <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                <div className="w-20 h-20 shrink-0 rounded-[10px] overflow-hidden border border-[var(--lc-border)] bg-black/25 flex items-center justify-center">
                   <img
                     src={img.url}
                     alt={img.altText || `Image ${idx + 1}`}
@@ -182,45 +181,42 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                   />
                 </div>
 
-                {/* Metadata inputs */}
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <input
                     type="text"
                     value={img.caption || ''}
                     onChange={e => handleUpdateMeta(idx, 'caption', e.target.value)}
                     placeholder="Caption (e.g. Figure 1: Circuit Diagram)"
-                    className="w-full text-xs rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                    className="lc-input w-full text-xs px-2.5 py-1.5"
                   />
                   <input
                     type="text"
                     value={img.altText || ''}
                     onChange={e => handleUpdateMeta(idx, 'altText', e.target.value)}
                     placeholder="Alt text / Description for screen readers"
-                    className="w-full text-[11px] rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1 text-zinc-700 dark:text-zinc-300 focus:outline-indigo-500"
+                    className="lc-input w-full text-[11px] px-2.5 py-1.5"
                   />
                 </div>
 
-                {/* Remove button */}
                 <button
                   type="button"
                   onClick={() => handleRemove(idx)}
-                  className="p-1 rounded-md text-zinc-400 hover:text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                  className="p-1.5 rounded-[8px] text-[var(--lc-text-muted)] hover:text-rose-400 hover:bg-rose-500/12 transition-colors"
                   title="Remove image"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Order Controls */}
               {images.length > 1 && (
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800">
-                  <span>Image #{idx + 1}</span>
+                <div className="flex items-center justify-between text-[11px] text-[var(--lc-text-muted)] pt-2 border-t border-[var(--lc-divider)]">
+                  <span className="tabular-nums">Image #{idx + 1}</span>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       disabled={idx === 0}
                       onClick={() => handleMove(idx, 'up')}
-                      className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-600 dark:text-zinc-400"
+                      className="p-1 rounded-[8px] hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Move up"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
@@ -229,7 +225,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                       type="button"
                       disabled={idx === images.length - 1}
                       onClick={() => handleMove(idx, 'down')}
-                      className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-600 dark:text-zinc-400"
+                      className="p-1 rounded-[8px] hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Move down"
                     >
                       <ArrowDown className="w-3.5 h-3.5" />

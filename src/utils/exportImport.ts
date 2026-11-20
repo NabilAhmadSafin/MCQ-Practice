@@ -25,10 +25,6 @@ export async function exportQuestionsJSON(): Promise<void> {
   window.location.assign('/api/export/json');
 }
 
-export async function exportQuestionsCSV(): Promise<void> {
-  window.location.assign('/api/export/csv');
-}
-
 export async function exportHistoryJSON(): Promise<void> {
   window.location.assign('/api/export/history');
 }
@@ -53,6 +49,43 @@ export async function importDataFromJson(jsonString: string): Promise<{
   return apiFetch('/api/import/json', {
     method: 'POST',
     body: JSON.stringify(parsed)
+  });
+}
+
+export async function importHistoryJSON(jsonString: string): Promise<{
+  sessionsCount: number;
+  attemptsCount: number;
+}> {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (e: any) {
+    throw new Error('Invalid JSON format: ' + e.message);
+  }
+
+  return apiFetch('/api/import/history', {
+    method: 'POST',
+    body: JSON.stringify(parsed)
+  });
+}
+
+export async function clearQuestionAdditionalData(options?: {
+  clearAttempts?: boolean;
+  clearSessions?: boolean;
+  clearFlags?: boolean;
+}): Promise<{
+  ok: boolean;
+  deletedAttempts: number;
+  deletedSessions: number;
+  resetFlaggedQuestions: number;
+}> {
+  return apiFetch('/api/questions/clear-additional-data', {
+    method: 'POST',
+    body: JSON.stringify({
+      clearAttempts: options?.clearAttempts !== false,
+      clearSessions: Boolean(options?.clearSessions),
+      clearFlags: Boolean(options?.clearFlags)
+    })
   });
 }
 

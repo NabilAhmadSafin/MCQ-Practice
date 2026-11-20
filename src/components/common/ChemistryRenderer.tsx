@@ -76,7 +76,11 @@ export const ChemistryRenderer: React.FC<ChemistryRendererProps> = React.memo(({
     if (displayMode) {
       return (
         <div
-          className={`my-3 px-4 py-2.5 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/25 border border-emerald-200/80 dark:border-emerald-800/50 text-zinc-900 dark:text-zinc-100 text-center overflow-x-auto select-text shadow-xs ${className}`}
+          className={`my-3 px-4 py-2.5 rounded-[10px] border text-[var(--lc-text)] text-center overflow-x-auto select-text ${className}`}
+          style={{
+            backgroundColor: 'var(--lc-success-soft)',
+            borderColor: 'color-mix(in srgb, var(--lc-success) 35%, transparent)'
+          }}
           dangerouslySetInnerHTML={{ __html: rendered.html }}
         />
       );
@@ -93,7 +97,7 @@ export const ChemistryRenderer: React.FC<ChemistryRendererProps> = React.memo(({
   if (displayMode) {
     return (
       <div
-        className={`my-3 px-4 py-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 font-mono text-sm sm:text-base font-semibold text-emerald-950 dark:text-emerald-200 text-center tracking-wide overflow-x-auto shadow-xs ${className}`}
+        className={`my-3 px-4 py-2.5 rounded-[10px] bg-emerald-500/12 border border-emerald-400/28 font-mono text-sm sm:text-base font-semibold text-emerald-200 text-center tracking-wide overflow-x-auto ${className}`}
       >
         {rendered.fallback}
       </div>
@@ -102,7 +106,7 @@ export const ChemistryRenderer: React.FC<ChemistryRendererProps> = React.memo(({
 
   return (
     <span
-      className={`inline-block font-mono text-[0.95em] font-medium text-emerald-900 dark:text-emerald-200 tracking-normal px-1 py-0.5 rounded bg-emerald-50/50 dark:bg-emerald-950/20 ${className}`}
+      className={`inline-block font-mono text-[0.95em] font-medium text-emerald-200 tracking-normal px-1.5 py-0.5 rounded bg-emerald-500/12 ${className}`}
     >
       {rendered.fallback}
     </span>

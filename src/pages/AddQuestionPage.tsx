@@ -37,10 +37,12 @@ import { ImageUploader } from '../components/common/ImageUploader';
 import { MathChemistryToolbar } from '../components/common/MathChemistryToolbar';
 import { RichContentRenderer } from '../components/common/RichContentRenderer';
 import { validateImageFile, storeImage, deleteMediaFile } from '../services/imageStorageService';
+import type { NavSection } from '../components/layout/Sidebar';
 
 interface AddQuestionPageProps {
   editId?: string | null;
-  onNavigate: (page: string) => void;
+  initialSubjectId?: string;
+  onNavigate: (page: NavSection, params?: any) => void;
 }
 
 interface CommonStemSubQuestion {
@@ -58,7 +60,11 @@ interface CommonStemSubQuestion {
   dontUnderstand: boolean;
 }
 
-export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavigate }) => {
+export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({
+  editId,
+  initialSubjectId,
+  onNavigate
+}) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [availableSources, setAvailableSources] = useState<string[]>([]);
@@ -70,7 +76,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
   const [typeSwitchWarning, setTypeSwitchWarning] = useState<string | null>(null);
 
   // Curriculum State
-  const [subjectId, setSubjectId] = useState('');
+  const [subjectId, setSubjectId] = useState(initialSubjectId || '');
   const [chapterId, setChapterId] = useState('');
 
   // Standard & Multiple Statement State
@@ -197,14 +203,18 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           setDontUnderstand(q.dontUnderstand);
         }
       } else if (subjs.length > 0) {
-        setSubjectId(subjs[0].id);
-        const chaps = await getChaptersBySubject(subjs[0].id);
+        const preferredId =
+          initialSubjectId && subjs.some(s => s.id === initialSubjectId)
+            ? initialSubjectId
+            : subjs[0].id;
+        setSubjectId(preferredId);
+        const chaps = await getChaptersBySubject(preferredId);
         setChapters(chaps);
         if (chaps.length > 0) setChapterId(chaps[0].id);
       }
     };
     loadInit();
-  }, [editId]);
+  }, [editId, initialSubjectId]);
 
   const handleSubjectChange = async (newSubjId: string) => {
     setSubjectId(newSubjId);
@@ -683,23 +693,23 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
+    <div className="max-w-4xl mx-auto space-y-6 pb-12 animate-lc-page">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--lc-border)]">
         <div className="flex items-center gap-3">
           <button
             id="back-to-bank-btn"
             onClick={() => onNavigate('question-bank')}
-            className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+            className="lc-btn-ghost p-2"
             title="Back to Question Bank"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--lc-text)]">
               {editId ? 'Edit Question' : 'Add New Question'}
             </h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm text-[var(--lc-text-secondary)] mt-0.5">
               {editId
                 ? 'Modify question details, statements, or shared information'
                 : 'Create and catalog standard, multiple statement, or common stem MCQs'}
@@ -707,14 +717,14 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setShowLivePreview(prev => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm transition ${
               showLivePreview
-                ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-700 dark:text-indigo-300 shadow-xs'
-                : 'border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
+                ? 'lc-btn-secondary border-[var(--lc-accent-border)] bg-[var(--lc-accent-soft)] text-[var(--lc-accent)]'
+                : 'lc-btn-secondary'
             }`}
           >
             {showLivePreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -725,7 +735,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               id="save-and-add-another-btn"
               disabled={isSubmitting}
               onClick={() => save(true)}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 transition disabled:opacity-50"
+              className="lc-btn-secondary px-4 py-2 text-sm disabled:opacity-50"
             >
               Save & Add Another
             </button>
@@ -734,7 +744,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             id="save-question-btn"
             disabled={isSubmitting}
             onClick={() => save(false)}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition disabled:opacity-50"
+            className="lc-btn-primary flex items-center gap-2 px-5 py-2 text-sm disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             <span>{editId ? 'Save Changes' : 'Save Question'}</span>
@@ -744,37 +754,37 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
       {/* Live Preview Card */}
       {showLivePreview && (
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border-2 border-indigo-500/50 p-5 space-y-4 shadow-md animate-in fade-in">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="lc-panel border-[var(--lc-accent-border)] p-5 space-y-4 animate-fadeIn">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--lc-border)]">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              <Eye className="w-4 h-4 text-[var(--lc-accent)]" />
+              <span className="text-xs font-semibold text-indigo-300">
                 Live Interactive Student Preview
               </span>
             </div>
-            <span className="text-[11px] text-zinc-400">
+            <span className="text-xs text-[var(--lc-text-muted)]">
               Updates in real-time as you type or upload figures
             </span>
           </div>
 
           {/* Stimulus preview if COMMON_STEM */}
           {questionType === 'COMMON_STEM' && (commonInfoContent || commonInfoImages.length > 0) && (
-            <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-2">
-              <div className="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+            <div className="p-4 rounded-[12px] border border-[var(--lc-accent-border)] bg-[var(--lc-accent-soft)] space-y-2">
+              <div className="text-xs font-semibold text-[var(--lc-accent)] flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
                 <span>{commonInfoTitle || 'উদ্দীপক'}</span>
               </div>
               <RichContentRenderer
                 content={commonInfoContent}
                 images={commonInfoImages}
-                className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed"
+                className="text-sm text-[var(--lc-text)] leading-relaxed"
               />
             </div>
           )}
 
           {/* Question Prompt preview */}
-          <div className="space-y-2">
-            <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          <div className="space-y-2.5">
+            <div className="text-base font-semibold text-[var(--lc-text)]">
               <RichContentRenderer
                 content={question || '(Question prompt is empty)'}
                 images={images}
@@ -783,10 +793,10 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
             {/* Multiple Statements preview */}
             {questionType === 'MULTIPLE_STATEMENT' && statements.length > 0 && (
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 p-3.5 space-y-1.5">
+              <div className="rounded-[12px] border border-[var(--lc-border)] bg-[var(--lc-surface-subtle)] p-3.5 space-y-1.5">
                 {statements.map((stmt, sIdx) => (
-                  <div key={sIdx} className="flex items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
-                    <span className="font-mono font-bold text-xs bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
+                  <div key={sIdx} className="flex items-start gap-2.5 text-sm text-[var(--lc-text)]">
+                    <span className="font-mono text-xs text-[var(--lc-text-secondary)] shrink-0 mt-0.5 tabular-nums">
                       {toRomanNumeral(sIdx + 1)}.
                     </span>
                     <RichContentRenderer content={stmt || `Statement ${sIdx + 1}`} />
@@ -805,35 +815,35 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                 return (
                   <div
                     key={optKey}
-                    className={`p-3 rounded-xl border text-sm flex items-start gap-2.5 ${
+                    className={`p-3 rounded-[10px] border text-sm flex items-start gap-2.5 ${
                       isCorrect
-                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100 font-medium'
-                        : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 text-zinc-800 dark:text-zinc-200'
+                        ? 'border-[var(--lc-success)] bg-[var(--lc-success-soft)] text-[var(--lc-text)] font-medium'
+                        : 'border-[var(--lc-border)] bg-[var(--lc-surface-subtle)] text-[var(--lc-text)]'
                     }`}
                   >
                     <span
-                      className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                      className={`w-5 h-5 rounded-[6px] flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 ${
                         isCorrect
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'
+                          ? 'bg-[var(--lc-success)] text-white'
+                          : 'bg-[var(--lc-surface)] border border-[var(--lc-border)] text-[var(--lc-text-secondary)]'
                       }`}
                     >
                       {optKey}
                     </span>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <RichContentRenderer content={optText || `Option ${optKey}`} />
                       {optImg && (
-                        <div className="mt-1">
+                        <div className="mt-1.5">
                           <img
                             src={optImg.url}
                             alt={`Option ${optKey} figure`}
-                            className="max-h-20 object-contain rounded border border-zinc-200 dark:border-zinc-700"
+                            className="max-h-20 object-contain rounded-[8px] border border-[var(--lc-border)]"
                           />
                         </div>
                       )}
                     </div>
                     {isCorrect && (
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider ml-auto">
+                      <span className="text-[11px] font-semibold text-[var(--lc-success)] ml-auto shrink-0">
                         Correct
                       </span>
                     )}
@@ -844,8 +854,8 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
             {/* Explanation preview */}
             {(explanation || explanationImages.length > 0) && (
-              <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
-                <span className="font-bold text-zinc-900 dark:text-zinc-100">Explanation:</span>
+              <div className="p-3.5 rounded-[10px] bg-[var(--lc-surface-subtle)] border border-[var(--lc-border)] text-xs text-[var(--lc-text-secondary)] space-y-1">
+                <span className="font-semibold text-[var(--lc-text)]">Explanation:</span>
                 <RichContentRenderer
                   content={explanation}
                   images={explanationImages}
@@ -858,31 +868,52 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
       {/* Messages & Warnings */}
       {typeSwitchWarning && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-600" />
+        <div
+          className="flex items-center gap-3 p-4 rounded-[12px] text-sm"
+          style={{
+            backgroundColor: 'var(--lc-warning-soft)',
+            border: '1px solid var(--lc-warning)',
+            color: 'var(--lc-text)'
+          }}
+        >
+          <AlertCircle className="w-5 h-5 flex-shrink-0 text-[var(--lc-warning)]" />
           <span>{typeSwitchWarning}</span>
         </div>
       )}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-500" />
+        <div
+          className="flex items-center gap-3 p-4 rounded-[12px] text-sm"
+          style={{
+            backgroundColor: 'var(--lc-error-soft)',
+            border: '1px solid var(--lc-error)',
+            color: 'var(--lc-error)'
+          }}
+        >
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
       {successMsg && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-500" />
+        <div
+          className="flex items-center gap-3 p-4 rounded-[12px] text-sm"
+          style={{
+            backgroundColor: 'var(--lc-success-soft)',
+            border: '1px solid var(--lc-success)',
+            color: 'var(--lc-success)'
+          }}
+        >
+          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {/* QUESTION TYPE SELECTOR */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3 shadow-xs">
+      <div className="lc-card p-5 space-y-3.5">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+          <label className="block text-sm font-semibold text-[var(--lc-text)]">
             Question Type / প্রশ্নের ধরন *
           </label>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+          <p className="text-xs text-[var(--lc-text-muted)] mt-0.5">
             Select the format matching standard, multiple-statement, or shared stem exam questions
           </p>
         </div>
@@ -892,24 +923,24 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           <button
             type="button"
             onClick={() => handleTypeSelect('STANDARD')}
-            className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all ${
+            className={`p-3.5 rounded-[12px] border text-left flex items-start gap-3 transition-all ${
               questionType === 'STANDARD'
-                ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 ring-1 ring-indigo-600'
-                : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200'
+                ? 'border-[var(--lc-accent)] bg-[var(--lc-accent-soft)] text-[var(--lc-text)]'
+                : 'border-[var(--lc-border)] bg-[var(--lc-surface-subtle)] hover:border-[var(--lc-border-strong)] text-[var(--lc-text)]'
             }`}
           >
             <div
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-[8px] shrink-0 ${
                 questionType === 'STANDARD'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                  ? 'bg-[var(--lc-accent)] text-white'
+                  : 'bg-[var(--lc-surface)] border border-[var(--lc-border)] text-[var(--lc-text-secondary)]'
               }`}
             >
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-sm font-bold">Standard MCQ</div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <div className="text-sm font-semibold">Standard MCQ</div>
+              <div className="text-xs text-[var(--lc-text-secondary)] mt-0.5">
                 Standard single question with 4 options
               </div>
             </div>
@@ -919,24 +950,24 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           <button
             type="button"
             onClick={() => handleTypeSelect('MULTIPLE_STATEMENT')}
-            className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all ${
+            className={`p-3.5 rounded-[12px] border text-left flex items-start gap-3 transition-all ${
               questionType === 'MULTIPLE_STATEMENT'
-                ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 ring-1 ring-indigo-600'
-                : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200'
+                ? 'border-[var(--lc-accent)] bg-[var(--lc-accent-soft)] text-[var(--lc-text)]'
+                : 'border-[var(--lc-border)] bg-[var(--lc-surface-subtle)] hover:border-[var(--lc-border-strong)] text-[var(--lc-text)]'
             }`}
           >
             <div
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-[8px] shrink-0 ${
                 questionType === 'MULTIPLE_STATEMENT'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                  ? 'bg-[var(--lc-accent)] text-white'
+                  : 'bg-[var(--lc-surface)] border border-[var(--lc-border)] text-[var(--lc-text-secondary)]'
               }`}
             >
               <ListOrdered className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-sm font-bold">বহুপদী সমাপ্তিসূচক</div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <div className="text-sm font-semibold">বহুপদী সমাপ্তিসূচক</div>
+              <div className="text-xs text-[var(--lc-text-secondary)] mt-0.5">
                 Multiple statements (i, ii, iii) with combined options
               </div>
             </div>
@@ -946,24 +977,24 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           <button
             type="button"
             onClick={() => handleTypeSelect('COMMON_STEM')}
-            className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all ${
+            className={`p-3.5 rounded-[12px] border text-left flex items-start gap-3 transition-all ${
               questionType === 'COMMON_STEM'
-                ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 ring-1 ring-indigo-600'
-                : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200'
+                ? 'border-[var(--lc-accent)] bg-[var(--lc-accent-soft)] text-[var(--lc-text)]'
+                : 'border-[var(--lc-border)] bg-[var(--lc-surface-subtle)] hover:border-[var(--lc-border-strong)] text-[var(--lc-text)]'
             }`}
           >
             <div
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-[8px] shrink-0 ${
                 questionType === 'COMMON_STEM'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                  ? 'bg-[var(--lc-accent)] text-white'
+                  : 'bg-[var(--lc-surface)] border border-[var(--lc-border)] text-[var(--lc-text-secondary)]'
               }`}
             >
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-sm font-bold">অভিন্ন তথ্যভিত্তিক</div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <div className="text-sm font-semibold">অভিন্ন তথ্যভিত্তিক</div>
+              <div className="text-xs text-[var(--lc-text-secondary)] mt-0.5">
                 Shared passage/stimulus with connected questions
               </div>
             </div>
@@ -972,17 +1003,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
       </div>
 
       {/* CURRICULUM SECTION (Subject & Chapter) */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4 shadow-xs">
+      <div className="lc-card p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+            <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
               Subject *
             </label>
             <select
               id="select-subject"
               value={subjectId}
               onChange={e => handleSubjectChange(e.target.value)}
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              className="lc-select w-full text-sm px-3 py-2"
             >
               {subjects.map(s => (
                 <option key={s.id} value={s.id}>
@@ -993,7 +1024,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+            <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
               Chapter *
             </label>
             <select
@@ -1001,7 +1032,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               value={chapterId}
               onChange={e => setChapterId(e.target.value)}
               disabled={chapters.length === 0}
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 disabled:opacity-50"
+              className="lc-select w-full text-sm px-3 py-2 disabled:opacity-50"
             >
               {chapters.length === 0 ? (
                 <option value="">No chapters in this subject</option>
@@ -1019,17 +1050,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
       {/* COMMON STEM PASSAGE FORM (When Question Type is COMMON_STEM) */}
       {questionType === 'COMMON_STEM' && (
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border-2 border-indigo-200 dark:border-indigo-900/60 p-6 space-y-4 shadow-xs">
-          <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
+        <div className="lc-card border-[var(--lc-accent-border)] p-6 space-y-4">
+          <div className="flex items-center gap-2 text-[var(--lc-accent)]">
             <Layers className="w-5 h-5" />
-            <h2 className="text-base font-bold">অভিন্ন তথ্য / উদ্দীপক (Common Stem Information)</h2>
+            <h2 className="text-base font-semibold">অভিন্ন তথ্য / উদ্দীপক (Common Stem Information)</h2>
           </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-[var(--lc-text-secondary)]">
             এই তথ্য বা উদ্দীপকটি একাধিক প্রশ্নের জন্য একবারই সংরক্ষিত হবে এবং অনুশীলনের সময় উপরে প্রদর্শিত হবে।
           </p>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+            <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
               Title / শিরোনাম (ঐচ্ছিক)
             </label>
             <input
@@ -1037,13 +1068,13 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               value={commonInfoTitle}
               onChange={e => setCommonInfoTitle(e.target.value)}
               placeholder="e.g. অভিন্ন তথ্য ১ বা উদ্দীপক ১"
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+              className="lc-input w-full text-sm px-3 py-2"
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              <label className="block text-xs font-medium text-[var(--lc-text-secondary)]">
                 Passage / Scenario / Information Content *
               </label>
             </div>
@@ -1061,7 +1092,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               value={commonInfoContent}
               onChange={e => setCommonInfoContent(e.target.value)}
               placeholder="উদ্দীপক বা সাধারণ তথ্যটি এখানে লিখুন... যেমন: একটি বস্তুর ভর 5 kg এবং তার বেগ 10 m/s..."
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 leading-relaxed font-sans"
+              className="lc-input w-full text-sm p-3 leading-relaxed font-sans"
             />
             <div className="pt-2">
               <ImageUploader
@@ -1076,20 +1107,20 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
       {/* MULTIPLE STATEMENT STATEMENTS LIST (When Question Type is MULTIPLE_STATEMENT) */}
       {questionType === 'MULTIPLE_STATEMENT' && (
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between">
+        <div className="lc-card p-6 space-y-4">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-                বিবৃতিসমূহ (Statements) - i, ii, iii... *
+              <label className="block text-xs font-medium text-[var(--lc-text-secondary)]">
+                বিবৃতিসমূহ (Statements) — i, ii, iii... *
               </label>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <p className="text-xs text-[var(--lc-text-muted)] mt-0.5">
                 Add each statement. They are automatically numbered using Roman numerals (i, ii, iii...).
               </p>
             </div>
             <button
               type="button"
               onClick={handleAddStatement}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition"
+              className="lc-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--lc-accent)] border-[var(--lc-accent-border)] bg-[var(--lc-accent-soft)]"
             >
               <Plus className="w-3.5 h-3.5" />
               Add Statement
@@ -1099,7 +1130,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           <div className="space-y-3">
             {statements.map((stmt, idx) => (
               <div key={idx} className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold font-mono text-xs flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700">
+                <span className="w-8 h-8 rounded-[8px] bg-[var(--lc-surface-subtle)] border border-[var(--lc-border)] text-[var(--lc-text-secondary)] font-semibold font-mono text-xs flex items-center justify-center shrink-0">
                   {toRomanNumeral(idx + 1)}.
                 </span>
                 <input
@@ -1107,13 +1138,13 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                   value={stmt}
                   onChange={e => handleStatementChange(idx, e.target.value)}
                   placeholder={`Statement ${toRomanNumeral(idx + 1)} text...`}
-                  className="flex-1 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                  className="lc-input flex-1 text-sm px-3 py-2"
                 />
                 <button
                   type="button"
                   onClick={() => handleRemoveStatement(idx)}
                   disabled={statements.length <= 2}
-                  className="p-2 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition disabled:opacity-30 disabled:pointer-events-none"
+                  className="lc-btn-ghost p-2 text-[var(--lc-text-muted)] hover:text-[var(--lc-error)] disabled:opacity-30 disabled:pointer-events-none"
                   title="Remove statement"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -1127,7 +1158,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             <button
               type="button"
               onClick={handleApplyDefaultCombinations}
-              className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              className="text-xs font-medium text-[var(--lc-accent)] hover:underline flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Fill standard options (i ও ii, i ও iii, ii ও iii, i, ii ও iii)
@@ -1140,19 +1171,19 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
       {/* If COMMON_STEM and in create mode: show multi-question group editor */}
       {questionType === 'COMMON_STEM' && !editId ? (
         <div className="space-y-6">
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between gap-3 pt-2">
             <div>
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-base font-semibold text-[var(--lc-text)]">
                 উদ্দীপকভিত্তিক প্রশ্নসমূহ (Questions for this Stimulus)
               </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs text-[var(--lc-text-muted)]">
                 Add each individual question that belongs to this shared passage. Each MCQ is tracked separately.
               </p>
             </div>
             <button
               type="button"
               onClick={handleAddGroupQuestion}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm"
+              className="lc-btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-xs"
             >
               <Plus className="w-3.5 h-3.5" />
               Add Another Question
@@ -1162,10 +1193,10 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           {groupQuestions.map((gq, qIdx) => (
             <div
               key={qIdx}
-              className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-5 shadow-xs relative"
+              className="lc-card p-6 space-y-5 relative"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--lc-border)]">
+                <span className="text-sm font-semibold text-[var(--lc-accent)] tabular-nums">
                   প্রশ্ন #{qIdx + 1}
                 </span>
 
@@ -1173,7 +1204,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                   <button
                     type="button"
                     onClick={() => handleRemoveGroupQuestion(qIdx)}
-                    className="text-xs text-rose-500 hover:text-rose-700 flex items-center gap-1"
+                    className="lc-btn-ghost px-2.5 py-1 text-xs text-[var(--lc-error)] flex items-center gap-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete Question
@@ -1183,7 +1214,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
               {/* Sub-Question Prompt */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+                <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
                   Question Prompt *
                 </label>
                 <textarea
@@ -1191,13 +1222,13 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                   value={gq.question}
                   onChange={e => handleUpdateGroupQuestion(qIdx, { question: e.target.value })}
                   placeholder={`Question #${qIdx + 1} prompt...`}
-                  className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                  className="lc-input w-full text-sm p-3"
                 />
               </div>
 
               {/* Sub-Question Options */}
               <div className="space-y-3">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                <label className="block text-xs font-medium text-[var(--lc-text-secondary)]">
                   Options & Correct Answer *
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1206,10 +1237,10 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                     return (
                       <div
                         key={optKey}
-                        className={`flex items-start gap-2.5 p-3 rounded-lg border transition ${
+                        className={`flex items-start gap-2.5 p-3 rounded-[10px] border transition ${
                           isSelected
-                            ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
-                            : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60'
+                            ? 'border-[var(--lc-success)] bg-[var(--lc-success-soft)]'
+                            : 'border-[var(--lc-border)] bg-[var(--lc-surface-subtle)]'
                         }`}
                       >
                         <label className="flex items-center gap-2 cursor-pointer mt-1 shrink-0">
@@ -1218,9 +1249,9 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                             name={`correctAnswer_group_${qIdx}`}
                             checked={isSelected}
                             onChange={() => handleUpdateGroupQuestion(qIdx, { correctAnswer: optKey })}
-                            className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700"
+                            className="w-4 h-4 accent-[var(--lc-success)]"
                           />
-                          <span className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
+                          <span className="font-semibold text-sm text-[var(--lc-text)]">
                             {optKey}
                           </span>
                         </label>
@@ -1233,7 +1264,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                             })
                           }
                           placeholder={`Option ${optKey} text...`}
-                          className="flex-1 text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 resize-none"
+                          className="lc-input flex-1 text-sm bg-[var(--lc-surface)] px-2.5 py-1.5 resize-none"
                         />
                       </div>
                     );
@@ -1243,7 +1274,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
               {/* Sub-Question Explanation */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+                <label className="block text-xs font-medium text-[var(--lc-text-secondary)] mb-1.5">
                   Explanation (Optional)
                 </label>
                 <input
@@ -1251,40 +1282,40 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                   value={gq.explanation || ''}
                   onChange={e => handleUpdateGroupQuestion(qIdx, { explanation: e.target.value })}
                   placeholder="Explanation or derivation for this specific question..."
-                  className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                  className="lc-input w-full text-sm px-3 py-2"
                 />
               </div>
 
               {/* Sub-Question Flags */}
-              <div className="flex items-center gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                <label className="flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+              <div className="flex flex-wrap items-center gap-5 pt-3 border-t border-[var(--lc-border)]">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--lc-text-secondary)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={gq.important}
                     onChange={e => handleUpdateGroupQuestion(qIdx, { important: e.target.checked })}
-                    className="rounded text-amber-500 focus:ring-amber-500 border-zinc-300 dark:border-zinc-700"
+                    className="rounded accent-[var(--lc-warning)]"
                   />
-                  <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                  <Bookmark className="w-3.5 h-3.5 text-[var(--lc-warning)]" />
                   Important
                 </label>
-                <label className="flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--lc-text-secondary)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={gq.veryImportant}
                     onChange={e => handleUpdateGroupQuestion(qIdx, { veryImportant: e.target.checked })}
-                    className="rounded text-rose-500 focus:ring-rose-500 border-zinc-300 dark:border-zinc-700"
+                    className="rounded accent-[var(--lc-error)]"
                   />
-                  <Flame className="w-3.5 h-3.5 text-rose-500" />
+                  <Flame className="w-3.5 h-3.5 text-[var(--lc-error)]" />
                   Very Important
                 </label>
-                <label className="flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--lc-text-secondary)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={gq.dontUnderstand}
                     onChange={e => handleUpdateGroupQuestion(qIdx, { dontUnderstand: e.target.checked })}
-                    className="rounded text-purple-500 focus:ring-purple-500 border-zinc-300 dark:border-zinc-700"
+                    className="rounded accent-[var(--lc-accent)]"
                   />
-                  <HelpCircle className="w-3.5 h-3.5 text-purple-500" />
+                  <HelpCircle className="w-3.5 h-3.5 text-[var(--lc-accent)]" />
                   Don't Understand
                 </label>
               </div>
@@ -1293,11 +1324,11 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
         </div>
       ) : (
         /* STANDARD, MULTIPLE_STATEMENT, or COMMON_STEM in single-edit mode */
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-6 shadow-xs">
+        <div className="lc-card p-6 space-y-6">
           {/* Question Text */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              <label className="block text-xs font-medium text-[var(--lc-text-secondary)]">
                 Question Prompt *
               </label>
             </div>
@@ -1315,7 +1346,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                   ? 'e.g. নিচের কোনটি সঠিক? বা প্রদত্ত তথ্যের আলোকে কোনটি সত্য?'
                   : 'Type your multiple choice question prompt here... (supports LaTeX $x^2$ and \\ce{H2O})'
               }
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 font-sans leading-relaxed"
+              className="lc-input w-full text-sm p-3 font-sans leading-relaxed"
             />
             <div className="pt-1">
               <ImageUploader
@@ -1328,10 +1359,10 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
           {/* Options */}
           <div className="space-y-3">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-              Options & Correct Answer *
+            <label className="block text-xs font-medium text-[var(--lc-text-secondary)]">
+              Options &amp; Correct Answer *
             </label>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs text-[var(--lc-text-muted)]">
               Select the radio button beside the correct answer. You can also attach figure images to individual options.
             </p>
 
@@ -1343,10 +1374,10 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                 return (
                   <div
                     key={optKey}
-                    className={`flex flex-col gap-2 p-3 rounded-lg border transition ${
+                    className={`flex flex-col gap-2 p-3 rounded-[10px] border transition ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
-                        : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60'
+                        ? 'border-[var(--lc-success)] bg-[var(--lc-success-soft)]'
+                        : 'border-[var(--lc-border)] bg-[var(--lc-surface-subtle)]'
                     }`}
                   >
                     <div className="flex items-start gap-2.5">
@@ -1356,9 +1387,9 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                           name="correctAnswer"
                           checked={isSelected}
                           onChange={() => setCorrectAnswer(optKey)}
-                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700"
+                          className="w-4 h-4 accent-[var(--lc-success)]"
                         />
-                        <span className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
+                        <span className="font-semibold text-sm text-[var(--lc-text)]">
                           {optKey}
                         </span>
                       </label>
@@ -1369,34 +1400,34 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                           setOptions(prev => ({ ...prev, [optKey]: e.target.value }))
                         }
                         placeholder={`Option ${optKey} text (or formula)...`}
-                        className="flex-1 text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 resize-none"
+                        className="lc-input flex-1 text-sm bg-[var(--lc-surface)] px-2.5 py-1.5 resize-none"
                       />
                     </div>
 
                     {/* Option Figure Upload */}
                     <div className="pl-6 flex items-center justify-between gap-2">
                       {optImg ? (
-                        <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <div className="flex items-center gap-2 bg-[var(--lc-surface)] p-1.5 rounded-[8px] border border-[var(--lc-border)]">
                           <img
                             src={optImg.url}
                             alt={`Option ${optKey}`}
-                            className="w-9 h-9 object-contain rounded border border-zinc-200 dark:border-zinc-700"
+                            className="w-9 h-9 object-contain rounded-[6px] border border-[var(--lc-border)]"
                           />
-                          <span className="text-[11px] text-zinc-500 truncate max-w-[110px]">
+                          <span className="text-[11px] text-[var(--lc-text-muted)] truncate max-w-[110px]">
                             {optImg.caption || `Option ${optKey} Image`}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleRemoveOptionImage(optKey)}
-                            className="p-1 text-rose-500 hover:text-rose-700 ml-1"
+                            className="p-1 text-[var(--lc-error)] hover:opacity-80 ml-1"
                             title="Remove option image"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ) : (
-                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
-                          <ImageIcon className="w-3 h-3 text-indigo-500" />
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-[8px] border border-dashed border-[var(--lc-border-strong)] text-[var(--lc-text-secondary)] hover:bg-[var(--lc-surface)] transition">
+                          <ImageIcon className="w-3 h-3 text-[var(--lc-accent)]" />
                           <span>Attach Option Figure</span>
                           <input
                             type="file"
@@ -1419,7 +1450,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           {/* Explanation */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              <label className="block text-xs font-medium text-[var(--lc-text-secondary)]">
                 Explanation / Solution Notes (Optional)
               </label>
             </div>
@@ -1438,7 +1469,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
               value={explanation}
               onChange={e => setExplanation(e.target.value)}
               placeholder="Detailed explanation, formula derivation, or reference..."
-              className="w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-3 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 leading-relaxed font-sans"
+              className="lc-input w-full text-sm p-3 leading-relaxed font-sans"
             />
             <div className="pt-1">
               <ImageUploader
@@ -1450,35 +1481,35 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           </div>
 
           {/* Status & Priority Flags */}
-          <div className="flex flex-wrap items-center gap-6 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer">
+          <div className="flex flex-wrap items-center gap-6 pt-3 border-t border-[var(--lc-divider)]">
+            <label className="flex items-center gap-2 text-xs font-medium text-[var(--lc-text-secondary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={important}
                 onChange={e => setImportant(e.target.checked)}
-                className="rounded text-amber-500 focus:ring-amber-500 border-zinc-300 dark:border-zinc-700"
+                className="rounded accent-[var(--lc-warning)]"
               />
-              <Bookmark className="w-4 h-4 text-amber-500" />
+              <Bookmark className="w-4 h-4 text-[var(--lc-warning)]" />
               Mark Important
             </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs font-medium text-[var(--lc-text-secondary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={veryImportant}
                 onChange={e => setVeryImportant(e.target.checked)}
-                className="rounded text-rose-500 focus:ring-rose-500 border-zinc-300 dark:border-zinc-700"
+                className="rounded accent-[var(--lc-error)]"
               />
-              <Flame className="w-4 h-4 text-rose-500" />
+              <Flame className="w-4 h-4 text-[var(--lc-error)]" />
               Mark Very Important
             </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs font-medium text-[var(--lc-text-secondary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={dontUnderstand}
                 onChange={e => setDontUnderstand(e.target.checked)}
-                className="rounded text-purple-500 focus:ring-purple-500 border-zinc-300 dark:border-zinc-700"
+                className="rounded accent-[var(--lc-accent)]"
               />
-              <HelpCircle className="w-4 h-4 text-purple-500" />
+              <HelpCircle className="w-4 h-4 text-[var(--lc-accent)]" />
               Mark Don't Understand
             </label>
           </div>
@@ -1486,13 +1517,13 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
       )}
 
       {/* MULTIPLE SOURCES SECTION */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4 shadow-xs">
-        <div className="flex items-center justify-between">
+      <div className="lc-card p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+            <label className="block text-sm font-semibold text-[var(--lc-text)] tabular-nums">
               Sources ({sources.length}) *
             </label>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs text-[var(--lc-text-muted)]">
               Add one or multiple sources (Board, School, or Guide like Panjaree, Lecture, Lecture Supplement, Royal, Chorcha, eProshnobank).
             </p>
           </div>
@@ -1500,7 +1531,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
             type="button"
             id="add-source-btn"
             onClick={handleAddSource}
-            className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition"
+            className="lc-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--lc-accent)] border-[var(--lc-accent-border)] bg-[var(--lc-accent-soft)]"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Source
@@ -1511,17 +1542,17 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
           {sources.map((src, idx) => (
             <div
               key={idx}
-              className="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-800/50 space-y-2"
+              className="p-3.5 rounded-[10px] border border-[var(--lc-border)] bg-[var(--lc-surface-subtle)] space-y-2"
             >
-              <div className="flex flex-wrap sm:flex-nowrap items-start gap-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-start gap-2.5">
                 <div className="w-full sm:w-32 shrink-0">
-                  <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                  <label className="block text-[11px] font-medium text-[var(--lc-text-muted)] mb-1">
                     Type
                   </label>
                   <select
                     value={src.type}
                     onChange={e => handleUpdateSource(idx, { type: e.target.value })}
-                    className="w-full text-xs font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                    className="lc-select w-full text-xs font-medium bg-[var(--lc-surface)] px-2.5 py-1.5"
                   >
                     <option value="Board">Board</option>
                     <option value="School">School</option>
@@ -1530,7 +1561,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                 </div>
 
                 <div className="flex-1 min-w-[170px]">
-                  <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                  <label className="block text-[11px] font-medium text-[var(--lc-text-muted)] mb-1">
                     {src.type === 'Board'
                       ? 'Board Exam / Year'
                       : src.type === 'School'
@@ -1549,7 +1580,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                         ? 'e.g. Notre Dame College'
                         : 'e.g. Panjaree, Lecture...'
                     }
-                    className="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500"
+                    className="lc-input w-full text-xs bg-[var(--lc-surface)] px-2.5 py-1.5"
                   />
                   <datalist id={`srcList-${idx}`}>
                     {src.type === 'Guide' ? (
@@ -1562,7 +1593,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
 
                 {src.type === 'Guide' && (
                   <div className="w-full sm:w-28 shrink-0">
-                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                    <label className="block text-[11px] font-medium text-[var(--lc-text-muted)] mb-1">
                       Entry / Q No.
                     </label>
                     <input
@@ -1570,7 +1601,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                       value={src.entryNo || ''}
                       onChange={e => handleUpdateSource(idx, { entryNo: e.target.value })}
                       placeholder="e.g. 142"
-                      className="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-indigo-500 font-mono"
+                      className="lc-input w-full text-xs bg-[var(--lc-surface)] px-2.5 py-1.5 font-mono"
                     />
                   </div>
                 )}
@@ -1578,7 +1609,7 @@ export const AddQuestionPage: React.FC<AddQuestionPageProps> = ({ editId, onNavi
                 <button
                   type="button"
                   onClick={() => handleRemoveSource(idx)}
-                  className="p-1.5 mt-5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                  className="lc-btn-ghost p-1.5 mt-5 text-[var(--lc-text-muted)] hover:text-[var(--lc-error)]"
                   title="Remove source"
                 >
                   <Trash2 className="w-4 h-4" />
